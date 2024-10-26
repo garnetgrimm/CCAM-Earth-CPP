@@ -21,9 +21,9 @@ earth: $(JSON_HEADERS)
 	cd $(LIBDAISY_DIR) && make
 	$(MAKE) all
 
-$(JSON_HEADERS): $(JSON_FILES)
+$(JSON_HEADERS): %.h: %.json
 	PYTHONPATH=$(PYTHONPATH):json2daisy/src \
-	python -m json2daisy $^
+	python -m json2daisy $^ -o $@
 
 # Core location, and generic Makefile.
 SYSTEM_FILES_DIR = $(LIBDAISY_DIR)/core
