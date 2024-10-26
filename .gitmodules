@@ -6,4 +6,4 @@
 	url = https://github.com/electro-smith/libDaisy
 [submodule "json2daisy"]
 	path = json2daisy
-	url = git@github.com:garnetgrimm/json2daisy.git
+	url = git@github.com:Center-Abstract-Concrete-Machines/json2daisy.git
