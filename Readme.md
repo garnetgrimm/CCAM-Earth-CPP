@@ -37,6 +37,9 @@ make
 ## Flash
 I set APP_TYPE=BOOT_SRAM in Makefile, which allows us to use a number of bells and whistles (like print statements for example). This means we have to first load the bootloader program onto the board, and then flash our image on top.
 ```
+# set target program
+export CCAM_PROJECT=0_kitchen_sink
+
 # upload bootloader
 make program-boot
 

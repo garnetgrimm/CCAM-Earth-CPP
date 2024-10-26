@@ -1,6 +1,6 @@
 #include <array>
 
-#include "json/earth.h"
+#include "earth.h"
 
 #include "daisysp.h"
 #include "Utility/dsp.h"
