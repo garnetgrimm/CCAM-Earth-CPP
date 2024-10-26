@@ -25,7 +25,7 @@ This repository is meant to serve primarily as a jumping off point for C++ proje
 
 ## Setup
 ```
-git clone git@github.com:garnetgrimm/CCAM-Earth-Init.git --recurse-submodules
+git clone git@github.com:Center-Abstract-Concrete-Machines/CCAM-Earth-CPP.git --recurse-submodules
 
 cd CCAM-Earth-init
 
