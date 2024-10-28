@@ -7,47 +7,25 @@
 
 json2daisy::DaisyEarth earth;
 
+static constexpr float MAX_U16_FLOAT = static_cast<float>(0xFFFF);
+
 using LedState = std::array<float, 8>;
-using NoteSeq = std::array<uint8_t, 8>;
-using ChordGen = std::function<int(int)>;
+using NoteSeq = std::array<float, 8>;
 
-const uint8_t MIDDLE_C = 60;
-
-static uint8_t major_chord(uint8_t root) {
-    std::array<uint8_t, 4> offsets = { 0, 4, 7, 12 };
-    return root + offsets[daisy::Random::GetValue() % offsets.size()];
-}
-
-static uint8_t minor_chord(uint8_t root) {
-    std::array<uint8_t, 4> offsets = { 0, 3, 7, 12 };
-    return root + offsets[daisy::Random::GetValue() % offsets.size()];
-}
-
-static uint8_t dimin_chord(uint8_t root) {
-    std::array<uint8_t, 4> offsets = { 0, 3, 6, 12 };
-    return root + offsets[daisy::Random::GetValue() % offsets.size()];
-}
-
-static uint8_t major_7th_chord(uint8_t root) {
-    std::array<uint8_t, 4> offsets = { 0, 4, 7, 11 };
-    return root + offsets[daisy::Random::GetValue() % offsets.size()]; 
-}
-
-static uint8_t minor_7th_chord(uint8_t root) {
-    std::array<uint8_t, 4> offsets = { 0, 3, 7, 10 };
-    return root + offsets[daisy::Random::GetValue() % offsets.size()]; 
-}
-
-static uint8_t dimin_7th_chord(uint8_t root) {
-    std::array<uint8_t, 4> offsets = { 0, 3, 6, 9 };
-    return root + offsets[daisy::Random::GetValue() % offsets.size()];
-}
-
-static void get_rand_seq(ChordGen gen, NoteSeq& seq, uint8_t root) {
-    for (uint8_t i = 0; i < seq.size(); i++) {
-        seq[i] = gen(root);
-    }
-}
+const std::array<std::string, 12> note_names = {
+    "C",
+    "C#",
+    "D",
+    "D#",
+    "E",
+    "F",
+    "F#",
+    "G",
+    "G#",
+    "A",
+    "A#",
+    "B"
+};
 
 const std::array<LedState, 12> pianoLayout = {
     LedState{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
@@ -66,30 +44,28 @@ const std::array<LedState, 12> pianoLayout = {
 
 const LedState nullState = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
-const std::array<ChordGen, 6> chordOptions = {
-    major_chord,
-    minor_chord,
-    dimin_chord,
-    major_7th_chord,
-    minor_7th_chord,
-    dimin_7th_chord
+struct Pattern {
+    NoteSeq seq;
+    uint8_t deg;
+    uint8_t oct;
 };
 
-std::array<NoteSeq, 8> patterns;
+std::array<Pattern, 8> patterns;
 
 enum class Focus {
     None,
     KeyKnob,
-    OctKnob,
     SclKnob,
+    TmpKnob,
     DegKnob,
+    OctKnob
 };
 
 static Focus masterFocus;
 
 template <Focus focus>
 struct StateDelta {
-    static const size_t timeoutTicks = 1000;
+    static const size_t timeoutSeconds = 2;
 
     size_t ticksSinceMove = 0;
     uint8_t lastValue;
@@ -107,16 +83,24 @@ struct StateDelta {
 
         ticksSinceMove++;
 
-        if (ticksSinceMove == timeoutTicks) {
+        if (ticksSinceMove == timeoutSeconds * earth.CvOutCallbackRate()) {
             masterFocus = Focus::None;
         }
     }
 };
 
 static StateDelta<Focus::KeyKnob> keyKnob;
-static StateDelta<Focus::OctKnob> octKnob;
 static StateDelta<Focus::SclKnob> sclKnob;
+static StateDelta<Focus::TmpKnob> tmpKnob;
+
+static StateDelta<Focus::OctKnob> octKnob;
 static StateDelta<Focus::DegKnob> degKnob;
+
+void get_rand_seq(NoteSeq& seq) {
+    for (uint8_t i = 0; i < seq.size(); i++) {
+        seq[i] = daisy::Random::GetFloat();
+    }
+}
 
 static uint8_t updatePatternSelect() {
     static uint8_t activePattern = 0;
@@ -131,40 +115,36 @@ static uint8_t updatePatternSelect() {
     return activePattern;
 }
 
-static void patternToLedState(const NoteSeq& pattern, LedState& state) {
-    uint8_t maxVal = 0;
-    uint8_t minVal = -1;
-    for(uint8_t i = 0; i < pattern.size(); i++) {
-        maxVal = std::max(maxVal, pattern[i]);
-        minVal = std::min(minVal, pattern[i]);
-    }
+static uint8_t activeNote = 0;
+static size_t activeNoteTicks = 0;
 
-    float amp = static_cast<float>(maxVal - minVal);
-    for(uint8_t i = 0; i < pattern.size(); i++) {
-        state[i] = static_cast<float>(pattern[i] - minVal) / amp;
-    }
-}
-
-static void EarthCallback(daisy::AudioHandle::InputBuffer, 
-            daisy::AudioHandle::OutputBuffer, 
-            size_t) {
+static void CVOutCallback(uint16_t **out, size_t size) {
     earth.ProcessAllControls();
 
-    uint8_t deg = daisysp::fmap(earth.knob4.Value(), 0.0f, 8.0f);
+    uint8_t deg = daisysp::fmap(earth.knob5.Value(), 0.0f, 8.0f);
     degKnob.tick(deg);
 
-    uint8_t scale = daisysp::fmap(earth.knob3.Value(), 0.0f, 2.0f);
-    sclKnob.tick(scale);
-
-    uint8_t oct = daisysp::fmap(earth.knob2.Value(), 0.0f, 4.0f);
+    uint8_t oct = daisysp::fmap(earth.knob4.Value(), 0.0f, 4.0f);
     octKnob.tick(oct);
+
+    uint8_t tempo = daisysp::fmap(earth.knob3.Value(), 60.0f, 240.0f);
+    tmpKnob.tick(tempo);
+
+    uint8_t scale = daisysp::fmap(earth.knob2.Value(), 0.0f, 2.0f);
+    sclKnob.tick(scale);
 
     uint8_t key = daisysp::fmap(earth.knob1.Value(), 0.0f, 12.0f);
     keyKnob.tick(key);
 
     uint8_t pidx = updatePatternSelect();
 
-    //ChordGen chord = chordOptions[deg];
+    size_t nextNoteTicks = (earth.CvOutCallbackRate()*60)/tempo;
+    activeNoteTicks++;
+    if (activeNoteTicks >= nextNoteTicks) {
+        activeNoteTicks = 0;
+        activeNote++;
+        activeNote %= 8;
+    }
 
     LedState state = nullState;
 
@@ -172,22 +152,36 @@ static void EarthCallback(daisy::AudioHandle::InputBuffer,
         case Focus::KeyKnob:
             state = pianoLayout[key];
             break;
-        case Focus::OctKnob:
-            state[oct] = 1.0f;
-            break;
         case Focus::SclKnob:
             state[scale] = 1.0f;
+            break;
+        case Focus::TmpKnob: {
+            float tmpPerc = static_cast<float>(tempo - 60) / static_cast<float>(240 - 60 - 10);
+            int maxLed = std::min((int)(tmpPerc * 8.0f), 8);
+            for (int i = 0; i < maxLed; i++) {
+                state[i] = 1.0f;
+            }
+            break;
+        } case Focus::OctKnob:
+            state[oct] = 1.0f;
             break;
         case Focus::DegKnob:
             state[deg] = 1.0f;
             break;
         default:
-            patternToLedState(patterns[pidx], state);
+            state = patterns[pidx].seq;
+            state[activeNote] = 1.0f;
             break;
     }
 
     for (unsigned i = 0; i < earth.leds.size(); i++) {
         earth.leds[i]->Set(state[i]);
+    }
+
+
+    for(size_t i = 0; i < size; i++)
+    {
+        out[1][i] = static_cast<uint16_t>(earth.knob1.Value() * MAX_U16_FLOAT) >> 4;
     }
 
     earth.PostProcess();
@@ -198,24 +192,12 @@ int main(void)
     earth.Init();
     earth.som.StartLog(false);
 
-    using Chord = std::tuple<ChordGen, uint8_t>;
-    std::array<Chord, 8> major_scale = {
-        Chord{major_chord, 0},
-        Chord{minor_chord, 2},
-        Chord{minor_chord, 4},
-        Chord{major_chord, 5},
-        Chord{major_chord, 7},
-        Chord{minor_chord, 9},
-        Chord{dimin_chord, 11},
-        Chord{major_chord, 12}
-    };
-
     for(uint8_t i = 0; i < patterns.size(); i++) {
-        auto [chord, root] = major_scale[i];
-        get_rand_seq(chord, patterns[i], root);
+        get_rand_seq(patterns[i].seq);
     }
 
-    earth.StartAudio(EarthCallback);
+    earth.StartCV(CVOutCallback);
+    earth.SetAudioSampleRate(earth.CvOutSampleRate());
 
     while(1) {
         daisy::System::Delay(1000);
