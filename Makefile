@@ -21,7 +21,7 @@ ccam_main: $(JSON_HEADERS)
 
 # build all board header files
 $(JSON_HEADERS): %.h: %.json
-	PYTHONPATH=$(PYTHONPATH):json2daisy/src \
+	PYTHONPATH=json2daisy/src \
 	python -m json2daisy $^ -o $@
 
 # Core location, and generic Makefile.
