@@ -6,73 +6,73 @@
     "channels": 2
   },
   "components": {
-    "cv_1": {
+    "knob1": {
       "component": "AnalogControlBipolar",
       "pin": "C5",
       "is_default": true
     },
-    "cv_2": {
+    "knob2": {
       "component": "AnalogControlBipolar",
       "pin": "C4",
       "is_default": true
     },
-    "cv_3": {
+    "knob3": {
       "component": "AnalogControlBipolar",
       "pin": "C3",
       "is_default": true
     },
-    "cv_4": {
+    "knob4": {
       "component": "AnalogControlBipolar",
       "pin": "C2",
       "is_default": true
     },
-    "cv_5": {
+    "unkown1": {
       "component": "AnalogControl",
       "pin": "C6",
       "is_default": true
     },
-    "cv_6": {
+    "unkown2": {
       "component": "AnalogControl",
       "pin": "C7",
       "is_default": true
     },
-    "cv_7": {
+    "unkown3": {
       "component": "AnalogControl",
       "pin": "C8",
       "is_default": true
     },
-    "cv_8": {
+    "unkown4": {
       "component": "AnalogControl",
       "pin": "C9",
       "is_default": true
     },
-    "ADC_9": {
+    "unkown5": {
       "component": "AnalogControl",
       "pin": "A2",
       "is_default": true
     },
-    "ADC_10": {
+    "unkown6": {
       "component": "AnalogControl",
       "pin": "A3",
       "is_default": true
     },
-    "ADC_11": {
+    "unkown7": {
       "component": "AnalogControl",
       "pin": "D9",
       "is_default": true
     },
-    "ADC_12": {
+    "unkown8": {
       "component": "AnalogControl",
       "pin": "D8",
       "is_default": true
     },
-    "gate_out_1": {
+    "gateout1": {
       "component": "GateOut",
       "pin": "B5",
       "display": "",
       "is_default": true
     },
-    "gate_out_2": {
+    "gateout2": {
       "component": "GateOut",
       "pin": "B6",
       "display": "",
@@ -82,12 +82,12 @@
       "component": "CVOuts",
       "is_default": true
     },
-    "gate_in_1": {
+    "gatein1": {
       "component": "GateIn",
       "pin": "B10",
       "is_default": true
     },
-    "gate_in_2": {
+    "gatein2": {
       "component": "GateIn",
       "pin": "B9",
       "is_default": true
@@ -124,33 +124,5 @@
       "component": "Led",
       "pin": "D10"
     }
-  },
-  "aliases": {
-    "gate": "gate_in_1",
-    "gate1": "gate_in_1",
-    "gate2": "gate_in_2",
-    "gateout": "gate_out_1",
-    "gateout1": "gate_out_1",
-    "gateout2": "gate_out_2",
-    "cvout": "cvout1",
-    "cv_out_1": "cvout1",
-    "cv_out_2": "cvout2",
-    "knob": "cv_5",
-    "knob1": "cv_5",
-    "knob2": "cv_6",
-    "knob3": "cv_7",
-    "knob4": "cv_8",
-    "knob5": "ADC_9",
-    "knob6": "ADC_10",
-    "knob7": "ADC_11",
-    "knob8": "ADC_12",
-    "cv1": "cv_1",
-    "cv2": "cv_2",
-    "cv3": "cv_3",
-    "cv4": "cv_4",
-    "cvin1": "cv_1",
-    "cvin2": "cv_2",
-    "cvin3": "cv_3",
-    "cvin4": "cv_4"
   }
 }

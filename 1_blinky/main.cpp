@@ -1,18 +1,26 @@
-#include "earth.h"
+#include "estuary.h"
+#include "daisysp.h"
 
-json2daisy::DaisyEarth earth;
+json2daisy::DaisyEstuary hw;
+
+static void AudioCallback(daisy::AudioHandle::InputBuffer in, 
+            daisy::AudioHandle::OutputBuffer out, 
+            size_t size) {
+    hw.ProcessAllControls();
+    hw.PostProcess();
+
+    for(unsigned i = 0; i < hw.knobs.size(); i++) {
+        hw.leds[i]->Set(hw.knobs[i]->Value());
+        hw.leds[i]->Update();
+    }
+}
 
 int main(void)
 {
-    earth.Init();
-    bool led_on = false;
+    hw.Init();
+    hw.StartAudio(AudioCallback);
 
     while(1) {
-        for (unsigned i = 0; i < earth.leds.size(); i++) {
-            earth.leds[i]->Set(led_on ? 1.0f : 0.0f);
-            earth.leds[i]->Update();
-        }
-        led_on = !led_on;
-        daisy::System::Delay(500);
+        daisy::System::Delay(1000);
     }
 }
