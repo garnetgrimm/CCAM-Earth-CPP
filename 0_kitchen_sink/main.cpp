@@ -1,26 +1,39 @@
 #include <array>
 
-#include "earth.h"
 
 #include "daisysp.h"
 #include "Utility/dsp.h"
 #include "Effects/reverbsc.h"
 
-json2daisy::DaisyEarth earth;
+#define PLATFORM_ESTUARY 1
+#define PLATFORM_EARTH 2
+
+#define __CCAM_TARGET_PLATFORM__ PLATFORM_EARTH
+
+#if __CCAM_TARGET_PLATFORM__ == PLATFORM_ESTUARY
+    #include "estuary.h"
+    ccam::hw::Estuary hw;
+#elif __CCAM_TARGET_PLATFORM__ == PLATFORM_EARTH
+    #include "earth.h"
+    ccam::hw::Earth hw;
+#else
+    #error Unknown target platform please define __CCAM_TARGET_PLATFORM__
+#endif
+
 daisysp::Oscillator vco;
 daisysp::Oscillator lfo;
 daisysp::ReverbSc verb;
 
 static constexpr float MAX_U16_FLOAT = static_cast<float>(0xFFFF);
 
-static void EarthCallback(daisy::AudioHandle::InputBuffer in, 
+static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
             size_t size) {
-    earth.ProcessAllControls();
-    earth.PostProcess();
+    hw.ProcessAllControls();
+    hw.PostProcess();
 
-    float time_cv = daisysp::fmap(earth.knob4.Value(), 0.3f, 0.99f);
-    float damp_cv = daisysp::fmap(earth.knob5.Value(), 1000.f, 19000.f, daisysp::Mapping::LOG);
+    float time_cv = daisysp::fmap(hw.knobs[0]->Value(), 0.3f, 0.99f);
+    float damp_cv = daisysp::fmap(hw.knobs[1]->Value(), 1000.f, 19000.f, daisysp::Mapping::LOG);
 
     verb.SetFeedback(time_cv);
     verb.SetLpFreq(damp_cv);
@@ -29,7 +42,7 @@ static void EarthCallback(daisy::AudioHandle::InputBuffer in,
     {
         verb.Process(IN_L[i], IN_R[i], &OUT_L[i], &OUT_R[i]);
 
-        float voice = vco.Process() * (earth.knob6.Value() - 0.05);
+        float voice = vco.Process() * (hw.knobs[2]->Value() - 0.05);
         OUT_L[i] += voice;
         OUT_R[i] += voice;
     }
@@ -39,42 +52,47 @@ static void CVOutCallback(uint16_t **out, size_t size)
 {
     for(size_t i = 0; i < size; i++)
     {
-        // the outputs are switched, do not know why.
-        out[1][i] = static_cast<uint16_t>(earth.knob1.Value() * MAX_U16_FLOAT) >> 4;
-        out[0][i] = static_cast<uint16_t>(earth.knob2.Value() * lfo.Process()) >> 4;
+        float cvsum = 0.0f;
+        for (auto* cvin : hw.cvins) { cvsum += cvin->Value(); }
+        out[1][i] = static_cast<uint16_t>(cvsum * MAX_U16_FLOAT) >> 4;
+        out[0][i] = static_cast<uint16_t>(lfo.Process()) >> 4;
     }
 }
 
 int main(void)
 {
-    earth.Init();
-    earth.StartAudio(EarthCallback);
-    earth.StartCV(CVOutCallback);
+    hw.Init();
+    hw.StartAudio(AudioCallback);
+    hw.StartCV(CVOutCallback);
 
-    vco.Init(earth.som.AudioSampleRate());
+    vco.Init(hw.som.AudioSampleRate());
     vco.SetFreq(440.0f);
 
-    lfo.Init(earth.CvOutSampleRate());    
+    lfo.Init(hw.CvOutSampleRate());    
     lfo.SetFreq(220.0f);
     lfo.SetAmp(MAX_U16_FLOAT);
 
-    verb.Init(earth.som.AudioSampleRate());
+    verb.Init(hw.som.AudioSampleRate());
 
-    earth.som.StartLog(false);
-    earth.som.PrintLine("Hello world");
+    hw.som.StartLog(false);
+    hw.som.PrintLine("Hello world");
 
     while(1) {
-        for (unsigned i = 0; i < earth.knobs.size(); i++) {
-            earth.leds[i]->Set(earth.knobs[i]->Value() - 0.05);
+        for (unsigned i = 0; i < hw.knobs.size(); i++) {
+            hw.leds[i].Set(hw.knobs[i]->Value());
         }
-        earth.led7.Set(earth.cvin1.Value() - 0.05);
-        earth.led8.Set(earth.cvin2.Value() - 0.05);
 
-        for (unsigned i = 0; i < earth.leds.size(); i++) {
-            if (earth.buttons[i]->Pressed()) {
-                earth.leds[i]->Set(0.0f);
+#if __CCAM_TARGET_PLATFORM__ == PLATFORM_EARTH
+        // not enough knobs on earth
+        hw.leds[6].Set(1.0f);
+        hw.leds[7].Set(1.0f);
+
+        for (unsigned i = 0; i < hw.leds.size(); i++) {
+            if (hw.buttons[i].Pressed()) {
+                hw.leds[i].Set(0.0f);
             }
         }
+#endif
 
         daisy::System::Delay(1);
     }
