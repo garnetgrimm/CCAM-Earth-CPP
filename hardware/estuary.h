@@ -38,17 +38,22 @@ struct Estuary {
 
         for (uint8_t i = 0; i < knobs.size(); i++) {
             knobs[i] = &som.controls[adc_idx];
-            knobs[i]->InitBipolarCv(som.adc.GetPtr(adc_idx++), som.AudioCallbackRate());
+            if (i >= 4) {
+                knobs[i]->Init(som.adc.GetPtr(adc_idx++), som.AudioCallbackRate());
+            } else {
+                knobs[i]->InitBipolarCv(som.adc.GetPtr(adc_idx++), som.AudioCallbackRate());
+            }
         }
 
-        std::array<daisy::Pin,2> swPins = {
+        switches[0].Init(
             daisy::patch_sm::DaisyPatchSM::B7,
             daisy::patch_sm::DaisyPatchSM::B8
-        };
+        );
 
-        for (uint8_t i = 0; i < switches.size(); i++) {
-            switches[i].Init(swPins[i], som.AudioCallbackRate());
-        }
+        switches[1].Init(
+            daisy::patch_sm::DaisyPatchSM::A8,
+            daisy::patch_sm::DaisyPatchSM::A9
+        );
     }
 
     void PostProcess()
@@ -60,9 +65,6 @@ struct Estuary {
 
     void ProcessAllControls() 
     {
-        for (uint8_t i = 0; i < switches.size(); i++) {
-            switches[i].Debounce();
-        }
         som.ProcessAllControls();
     }
 
@@ -99,7 +101,7 @@ struct Estuary {
     std::array<daisy::AnalogControl*, 8> knobs;
     std::array<daisy::AnalogControl*, 4> cvins;
     std::array<daisy::Led, 8> leds;
-    std::array<daisy::Switch, 2> switches;
+    std::array<daisy::Switch3, 2> switches;
 };
 
 } // namespace hw
