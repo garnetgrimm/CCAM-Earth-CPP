@@ -79,6 +79,7 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             if (clocking) {
                 Process();
             }
+            hw.som.gate_out_1.Write(clocking);
             clocking = !clocking;
         }
 
@@ -95,7 +96,6 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
         hw.leds[i].Set(enabled ? 0.0f : 1.0f);
     }
 
-    hw.som.gate_out_1.Write(clocking);
     hw.PostProcess();
 }
 
