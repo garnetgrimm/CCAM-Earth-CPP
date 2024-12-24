@@ -13,6 +13,8 @@ float inverse_sample_rate = 0.0f;
 
 std::array<daisysp::Oscillator, 2> vcos;
 
+bool clocking = false;
+
 uint8_t SeqLen() {
     if (hw.switches[0].Read() == daisy::Switch3::POS_CENTER) {
         return 4;
@@ -45,6 +47,19 @@ void StepSeq() {
     step_num = (step_num + seq_step) % seq_len;
 }
 
+void Process() {
+    StepSeq();
+
+    auto write_out = [&](uint8_t channel, uint8_t step) {
+        float value = hw.knobs[step]->Value();
+        hw.som.WriteCvOut(channel, value*5.0f);
+        vcos[channel].SetFreq(daisysp::fmap(value, 44.0f, 440.0f));
+    };
+
+    write_out(0, step_num);
+    write_out(1, SeqLen() == 4 ? (7 - step_num) : step_num);
+}
+
 static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
             size_t size) {
@@ -54,25 +69,19 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
     {
         if (hw.som.gate_in_1.Trig()) {
             clk_freq = hw.som.AudioSampleRate() / static_cast<float>(ticks_since_high);
-            clock.SetFreq(clk_freq);
+            clock.SetFreq(clk_freq * 2.0f);
             ticks_since_high = 0;
         } else {
             ticks_since_high++;
         }
 
         if (clock.Process()) {
-            StepSeq();
-
-            auto write_out = [&](uint8_t channel, uint8_t step) {
-                float value = hw.knobs[step]->Value();
-                hw.som.WriteCvOut(channel, value*5.0f);
-                vcos[channel].SetFreq(daisysp::fmap(value, 44.0f, 440.0f));
-            };
-            
-            write_out(0, step_num);
-            write_out(1, SeqLen() == 4 ? (7 - step_num) : step_num);
+            if (clocking) {
+                Process();
+            }
+            clocking = !clocking;
         }
-        
+
         OUT_L[i] = vcos[0].Process();
         OUT_R[i] = vcos[1].Process();
     }
@@ -86,6 +95,7 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
         hw.leds[i].Set(enabled ? 0.0f : 1.0f);
     }
 
+    hw.som.gate_out_1.Write(clocking);
     hw.PostProcess();
 }
 
