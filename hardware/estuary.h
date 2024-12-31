@@ -27,7 +27,7 @@ struct Estuary {
         };
 
         for (uint8_t i = 0; i < leds.size(); i++) {
-            leds[i].Init(ledPins[i], true);
+            leds[i].Init(ledPins[i], false);
             leds[i].Set(0.0f);
         }
 
