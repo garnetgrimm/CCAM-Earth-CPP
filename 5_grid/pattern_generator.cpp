@@ -27,25 +27,13 @@ namespace grids {
 Options PatternGenerator::options_;
 
 /* static */
-uint8_t PatternGenerator::pulse_;
-
-/* static */
 uint8_t PatternGenerator::step_;
-
-/* static */
-bool PatternGenerator::first_beat_;
-
-/* static */
-bool PatternGenerator::beat_;
 
 /* static */
 uint8_t PatternGenerator::euclidean_step_[kNumParts];
 
 /* static */
 uint8_t PatternGenerator::state_;
-
-/* static */
-uint8_t PatternGenerator::pulse_duration_counter_;
 
 /* static */
 float PatternGenerator::part_perturbation_[kNumParts];
@@ -126,82 +114,51 @@ void PatternGenerator::EvaluateDrums() {
         }
         instrument_mask <<= 1;
     }
-    if (output_clock()) {
-        state_ |= accent_bits ? OUTPUT_BIT_COMMON : 0;
-        state_ |= step_ == 0 ? OUTPUT_BIT_RESET : 0;
-    } else {
-        state_ |= accent_bits << 3;
-    }
+    state_ |= accent_bits << 3;
 }
 
 /* static */
 void PatternGenerator::EvaluateEuclidean() {
-  // Refresh only on sixteenth notes.
-  if (step_ & 1) {
-    return;
-  }
+    // Euclidean pattern generation
+    uint8_t instrument_mask = 1;
+    uint8_t reset_bits = 0;
+    for (uint8_t i = 0; i < kNumParts; ++i) {
+        uint8_t length = (settings_.options.euclidean_length[i] * kStepsPerPattern) + 1;
+        size_t offset = 0;
+        offset += (length - 1) * kStepsPerPattern;
+        offset += settings_.density[i] * kStepsPerPattern;
+        while (euclidean_step_[i] >= length) {
+            euclidean_step_[i] -= length;
+        }
+        uint32_t step_mask = 1L << static_cast<uint32_t>(euclidean_step_[i]);
+        uint32_t pattern_bits = lut_res_euclidean[offset];
+        if (pattern_bits & step_mask) {
+            state_ |= instrument_mask;
+        }
+        if (euclidean_step_[i] == 0) {
+            reset_bits |= instrument_mask;
+        }
+        instrument_mask <<= 1;
+    }
   
-  // Euclidean pattern generation
-  uint8_t instrument_mask = 1;
-  uint8_t reset_bits = 0;
-  for (uint8_t i = 0; i < kNumParts; ++i) {
-    uint8_t length = (settings_.options.euclidean_length[i] * kStepsPerPattern) + 1;
-    size_t offset = 0;
-    offset += (length - 1) * kStepsPerPattern;
-    offset += settings_.density[i] * kStepsPerPattern;
-    while (euclidean_step_[i] >= length) {
-      euclidean_step_[i] -= length;
-    }
-    uint32_t step_mask = 1L << static_cast<uint32_t>(euclidean_step_[i]);
-    uint32_t pattern_bits = lut_res_euclidean[offset];
-    if (pattern_bits & step_mask) {
-      state_ |= instrument_mask;
-    }
-    if (euclidean_step_[i] == 0) {
-      reset_bits |= instrument_mask;
-    }
-    instrument_mask <<= 1;
-  }
-  
-  if (output_clock()) {
-    state_ |= reset_bits ? OUTPUT_BIT_COMMON : 0;
-    state_ |= (reset_bits == 0x07) ? OUTPUT_BIT_RESET : 0;
-  } else {
     state_ |= reset_bits << 3;
-  }
 }
 
 /* static */
-void PatternGenerator::Evaluate() {
+void PatternGenerator::Evaluate(bool do_tick) {
   state_ = 0;
-  pulse_duration_counter_ = 0;
-  
-  // Highest bits: clock and random bit.
-  state_ |= 0x40;
-  
-  if (output_clock()) {
-    state_ |= OUTPUT_BIT_CLOCK;
-  }
-
-  // Refresh only at step changes.
-  if (pulse_ != 0) {
-    return;
-  }
-  
   if (options_.output_mode == OUTPUT_MODE_EUCLIDEAN) {
     EvaluateEuclidean();
+    if (do_tick) {
+        for (uint8_t i = 0; i < kNumParts; ++i) {
+            ++euclidean_step_[i];
+        }
+    }
   } else {
     EvaluateDrums();
-  }
-}
-
-/* static */
-int8_t PatternGenerator::swing_amount() {
-  if (options_.swing && output_mode() == OUTPUT_MODE_DRUMS) {
-    float value = settings_.options.drums.randomness * 43.0f;
-    return (!(step_ & 2)) ? value : -value;
-  } else {
-    return 0;
+    if (do_tick) {
+        step_ = (step_ + 1) % kStepsPerPattern;
+    }
   }
 }
 

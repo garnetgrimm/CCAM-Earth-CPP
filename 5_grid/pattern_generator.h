@@ -91,92 +91,20 @@ class PatternGenerator {
   
   static inline void Init() {
     step_ = 0;
-    pulse_ = 0;
     memset(euclidean_step_, 0, sizeof(euclidean_step_));
   }
   
   static inline void Retrigger() {
-    Evaluate();
+    Evaluate(false);
   }
   
-  static inline void TickClock(uint8_t num_pulses) {
-    Evaluate();
-    beat_ = (step_ & 0x7) == 0;
-    first_beat_ = step_ == 0;
-    
-    pulse_ += num_pulses;
-    
-    // Wrap into ppqn steps.
-    while (pulse_ >= kPulsesPerStep) {
-      pulse_ -= kPulsesPerStep;
-      if (!(step_ & 1)) {
-        for (uint8_t i = 0; i < kNumParts; ++i) {
-          ++euclidean_step_[i];
-        }
-      }
-      ++step_;
-    }
-    
-    // Wrap into step sequence steps.
-    if (step_ >= kStepsPerPattern) {
-      step_ -= kStepsPerPattern;
-    }
-  }
-  
-  static inline uint8_t state() {
-    return state_;
-  }
-  static inline uint8_t step() { return step_; }
-  
-  static inline bool swing() { return options_.swing; }
-  static int8_t swing_amount();
-  static inline bool output_clock() { return options_.output_clock; }
-  static inline bool tap_tempo() { return options_.tap_tempo; }
-  static inline bool gate_mode() { return options_.gate_mode; }
-  static inline OutputMode output_mode() { return options_.output_mode; }
-  static inline ClockResolution clock_resolution() { return options_.clock_resolution; }
-
-  static void set_swing(uint8_t value) { options_.swing = value; }  
-  static void set_output_clock(uint8_t value) { options_.output_clock = value; }
-  static void set_tap_tempo(uint8_t value) { options_.tap_tempo = value; }
-  static void set_output_mode(uint8_t value) { 
-    options_.output_mode = static_cast<OutputMode>(value);
-  }
-  static void set_clock_resolution(uint8_t value) {
-    if (value >= CLOCK_RESOLUTION_24_PPQN) {
-      value = CLOCK_RESOLUTION_24_PPQN;
-    }
-    options_.clock_resolution = static_cast<ClockResolution>(value);
-  }
-  static void set_gate_mode(bool gate_mode) {
-    options_.gate_mode = gate_mode;
-  }
-  
-  static inline void IncrementPulseCounter() {
-    ++pulse_duration_counter_;
-    // Zero all pulses after 1ms.
-    if (pulse_duration_counter_ >= kPulseDuration && !options_.gate_mode) {
-      state_ = 0;
-      // Possible mod: the extra random pulse is not reset, and its behaviour
-      // is more similar to that of a S&H.
-      //state_ &= 0x80;
-    }
-  }
-  
-  static inline void ClockFallingEdge() {
-    if (options_.gate_mode) {
-      state_ = 0;
-    }
+  static inline void TickClock() {
+    Evaluate(true);
   }
   
   static inline PatternGeneratorSettings* mutable_settings() {
     return &settings_;
   }
-  
-  static bool on_first_beat() { return first_beat_; }
-  static bool on_beat() { return beat_; }
-
-  static void SaveSettings();
   
   static inline uint8_t led_pattern() {
     uint8_t result = 0;
@@ -193,8 +121,7 @@ class PatternGenerator {
   }
   
  private:
-  static void LoadSettings();
-  static void Evaluate();
+  static void Evaluate(bool do_tick);
   static void EvaluateEuclidean();
   static void EvaluateDrums();
   
@@ -209,8 +136,6 @@ class PatternGenerator {
   static uint8_t pulse_;
   static uint8_t step_;
   static uint8_t euclidean_step_[kNumParts];
-  static bool first_beat_;
-  static bool beat_;
   
   static uint8_t state_;
   static float part_perturbation_[kNumParts];
