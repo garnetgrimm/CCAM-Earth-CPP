@@ -26,10 +26,6 @@
 
 namespace grids {
 
-typedef uint8_t ResourceId;
-
-extern const char* const string_table[];
-
 extern const uint16_t* const lookup_table_table[];
 
 extern const uint32_t* const lookup_table32_table[];
@@ -63,61 +59,6 @@ extern const uint8_t node_21[];
 extern const uint8_t node_22[];
 extern const uint8_t node_23[];
 extern const uint8_t node_24[];
-#define STR_RES_DUMMY 0  // dummy
-#define LUT_RES_EUCLIDEAN 0
-#define LUT_RES_EUCLIDEAN_SIZE 1024
-#define LUT_RES_TEMPO_PHASE_INCREMENT 1
-#define LUT_RES_TEMPO_PHASE_INCREMENT_SIZE 512
-#define NODE_0 0
-#define NODE_0_SIZE 96
-#define NODE_1 1
-#define NODE_1_SIZE 96
-#define NODE_2 2
-#define NODE_2_SIZE 96
-#define NODE_3 3
-#define NODE_3_SIZE 96
-#define NODE_4 4
-#define NODE_4_SIZE 96
-#define NODE_5 5
-#define NODE_5_SIZE 96
-#define NODE_6 6
-#define NODE_6_SIZE 96
-#define NODE_7 7
-#define NODE_7_SIZE 96
-#define NODE_8 8
-#define NODE_8_SIZE 96
-#define NODE_9 9
-#define NODE_9_SIZE 96
-#define NODE_10 10
-#define NODE_10_SIZE 96
-#define NODE_11 11
-#define NODE_11_SIZE 96
-#define NODE_12 12
-#define NODE_12_SIZE 96
-#define NODE_13 13
-#define NODE_13_SIZE 96
-#define NODE_14 14
-#define NODE_14_SIZE 96
-#define NODE_15 15
-#define NODE_15_SIZE 96
-#define NODE_16 16
-#define NODE_16_SIZE 96
-#define NODE_17 17
-#define NODE_17_SIZE 96
-#define NODE_18 18
-#define NODE_18_SIZE 96
-#define NODE_19 19
-#define NODE_19_SIZE 96
-#define NODE_20 20
-#define NODE_20_SIZE 96
-#define NODE_21 21
-#define NODE_21_SIZE 96
-#define NODE_22 22
-#define NODE_22_SIZE 96
-#define NODE_23 23
-#define NODE_23_SIZE 96
-#define NODE_24 24
-#define NODE_24_SIZE 96 
 
 }  // namespace grids
 
