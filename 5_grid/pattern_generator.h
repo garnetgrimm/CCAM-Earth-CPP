@@ -31,57 +31,21 @@
 namespace grids {
 
 constexpr uint8_t kGridSize = 5;
-
-const uint8_t kNumParts = 3;
-const uint8_t kPulsesPerStep = 3;  // 24 ppqn ; 8 steps per quarter note.
-const uint8_t kStepsPerPattern = 32;
-const uint8_t kPulseDuration = 8;  // 8 ticks of the main clock.
-
-struct DrumsSettings {
-  float x;
-  float y;
-  float randomness;
-};
-
-struct PatternGeneratorSettings {
-  union Options {
-    DrumsSettings drums;
-    float euclidean_length[kNumParts];
-  } options;
-  float density[kNumParts];
-};
+constexpr uint8_t kNumParts = 3;
+constexpr uint8_t kStepsPerPattern = 32;
 
 enum OutputMode {
   OUTPUT_MODE_EUCLIDEAN,
   OUTPUT_MODE_DRUMS
 };
 
-enum ClockResolution {
-  CLOCK_RESOLUTION_4_PPQN,
-  CLOCK_RESOLUTION_8_PPQN,
-  CLOCK_RESOLUTION_24_PPQN,
-  CLOCK_RESOLUTION_LAST
-};
-
-enum OutputBits {
-  OUTPUT_BIT_COMMON = 0x08,
-  OUTPUT_BIT_CLOCK = 0x10,
-  OUTPUT_BIT_RESET = 0x20
-};
-
-enum LedState {
-    LED_BD,
-    LED_SD,
-    LED_HH    
-};
-
-struct Options {
-  ClockResolution clock_resolution;
-  OutputMode output_mode;
-  bool output_clock;
-  bool tap_tempo;
-  bool gate_mode;
-  bool swing;
+struct Settings {
+    float x;
+    float y;
+    float randomness;
+    OutputMode output_mode;
+    uint8_t euclidean_length[kNumParts];
+    float density[kNumParts];
 };
 
 class PatternGenerator {
@@ -89,63 +53,26 @@ class PatternGenerator {
   PatternGenerator() { }
   ~PatternGenerator() { }
   
-  static inline void Init() {
-    step_ = 0;
-    memset(euclidean_step_, 0, sizeof(euclidean_step_));
-  }
-  
-  static inline void Retrigger() {
-    Evaluate(false);
-  }
-  
-  static inline void TickClock() {
-    Evaluate(true);
-  }
-  
-  static inline PatternGeneratorSettings* mutable_settings() {
-    return &settings_;
-  }
-  
-  static inline uint8_t led_pattern() {
-    uint8_t result = 0;
-    if (state_ & 1) {
-      result |= LED_BD;
+    void Reset() {
+        step_ = 0;
+        memset(euclidean_step_, 0, sizeof(euclidean_step_));
     }
-    if (state_ & 2) {
-      result |= LED_SD;
-    }
-    if (state_ & 4) {
-      result |= LED_HH;
-    }
-    return result;
-  }
   
  private:
-  static void Evaluate(bool do_tick);
-  static void EvaluateEuclidean();
-  static void EvaluateDrums();
+    void Tick();
+    void TickEuclidean();
+    void TickDrums();
   
-  static float ReadDrumMap(
-      uint8_t step,
-      uint8_t instrument,
-      float x,
-      float y);
+    float ReadDrumMap(uint8_t step, uint8_t instrument, float x, float y);
 
-  static Options options_;
+    uint8_t step_;
+    uint8_t euclidean_step_[kNumParts];
   
-  static uint8_t pulse_;
-  static uint8_t step_;
-  static uint8_t euclidean_step_[kNumParts];
-  
-  static uint8_t state_;
-  static float part_perturbation_[kNumParts];
+    uint8_t state_;
+    float part_perturbation_[kNumParts];
 
-  static uint8_t pulse_duration_counter_;
-  
-  static PatternGeneratorSettings settings_;
+    static Settings settings_;
 };
-
-extern PatternGenerator pattern_generator;
 
 }  // namespace grids
 

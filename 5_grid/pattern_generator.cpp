@@ -23,27 +23,6 @@
 
 namespace grids {
   
-/* static */
-Options PatternGenerator::options_;
-
-/* static */
-uint8_t PatternGenerator::step_;
-
-/* static */
-uint8_t PatternGenerator::euclidean_step_[kNumParts];
-
-/* static */
-uint8_t PatternGenerator::state_;
-
-/* static */
-float PatternGenerator::part_perturbation_[kNumParts];
-
-/* static */
-PatternGeneratorSettings PatternGenerator::settings_;
-
-/* extern */
-PatternGenerator pattern_generator;
-
 static const uint8_t* drum_map[kGridSize][kGridSize] = {
   { node_10, node_8, node_0, node_9, node_11 },
   { node_15, node_7, node_13, node_12, node_6 },
@@ -52,7 +31,6 @@ static const uint8_t* drum_map[kGridSize][kGridSize] = {
   { node_24, node_19, node_17, node_20, node_22 },
 };
 
-/* static */
 float PatternGenerator::ReadDrumMap(
     uint8_t step,
     uint8_t instrument,
@@ -83,22 +61,17 @@ float PatternGenerator::ReadDrumMap(
     return interp(interp(a, b, x), interp(c, d, x), y);
 }
 
-/* static */
-void PatternGenerator::EvaluateDrums() {
+void PatternGenerator::TickDrums() {
     // At the beginning of a pattern, decide on perturbation levels.
     if (step_ == 0) {
         for (uint8_t i = 0; i < kNumParts; ++i) {
-            float randomness = options_.swing ? 0.0f : settings_.options.drums.randomness;
-            part_perturbation_[i] = daisy::Random::GetFloat(0.0f, randomness);
+            part_perturbation_[i] = daisy::Random::GetFloat(0.0f, settings_.randomness);
         }
     }
   
     uint8_t instrument_mask = 1;
-    float x = settings_.options.drums.x;
-    float y = settings_.options.drums.y;
-    uint8_t accent_bits = 0;
     for (uint8_t i = 0; i < kNumParts; ++i) {
-        float level = ReadDrumMap(step_, i, x, y);
+        float level = ReadDrumMap(step_, i, settings_.x, settings_.y);
         if (level < 1.0f - part_perturbation_[i]) {
             level += part_perturbation_[i];
         } else {
@@ -107,25 +80,20 @@ void PatternGenerator::EvaluateDrums() {
             level = 1.0f;
         }
         if (level > 1.0f - settings_.density[i]) {
-            if (level > 0.75) {
-                accent_bits |= instrument_mask;
-            }
             state_ |= instrument_mask;
         }
         instrument_mask <<= 1;
     }
-    state_ |= accent_bits << 3;
 }
 
-/* static */
-void PatternGenerator::EvaluateEuclidean() {
+void PatternGenerator::TickEuclidean() {
     // Euclidean pattern generation
     uint8_t instrument_mask = 1;
     uint8_t reset_bits = 0;
     for (uint8_t i = 0; i < kNumParts; ++i) {
-        uint8_t length = (settings_.options.euclidean_length[i] * kStepsPerPattern) + 1;
+        uint8_t length = settings_.euclidean_length[i];
         size_t offset = 0;
-        offset += (length - 1) * kStepsPerPattern;
+        offset += length * kStepsPerPattern;
         offset += settings_.density[i] * kStepsPerPattern;
         while (euclidean_step_[i] >= length) {
             euclidean_step_[i] -= length;
@@ -144,22 +112,21 @@ void PatternGenerator::EvaluateEuclidean() {
     state_ |= reset_bits << 3;
 }
 
-/* static */
-void PatternGenerator::Evaluate(bool do_tick) {
-  state_ = 0;
-  if (options_.output_mode == OUTPUT_MODE_EUCLIDEAN) {
-    EvaluateEuclidean();
-    if (do_tick) {
+void PatternGenerator::Tick() {
+    auto inc_and_wrap = [&](uint8_t& value, uint8_t maxval) {
+        value = (value + 1) % maxval;
+    };
+
+    state_ = 0;
+    if (settings_.output_mode == OUTPUT_MODE_EUCLIDEAN) {
+        TickEuclidean();
         for (uint8_t i = 0; i < kNumParts; ++i) {
-            ++euclidean_step_[i];
+            inc_and_wrap(euclidean_step_[i], settings_.euclidean_length[i]);
         }
+    } else {
+        TickDrums();
+        inc_and_wrap(step_, kStepsPerPattern);
     }
-  } else {
-    EvaluateDrums();
-    if (do_tick) {
-        step_ = (step_ + 1) % kStepsPerPattern;
-    }
-  }
 }
 
 }  // namespace grids
