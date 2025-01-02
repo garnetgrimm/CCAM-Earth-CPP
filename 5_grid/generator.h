@@ -35,8 +35,8 @@ constexpr uint8_t kStepsPerPattern = 32;
 class DrumGenerator {
 public:
     virtual void Reset() { step_ = 0; }
-    virtual void Tick();
-    virtual bool Triggered();
+    virtual void Tick() = 0;
+    virtual bool Triggered() = 0;
 protected:
     uint8_t step_;
 };

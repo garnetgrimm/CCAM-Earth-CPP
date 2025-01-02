@@ -61,7 +61,7 @@ void PatternGenerator::Tick() {
         part_perturbation_ = daisy::Random::GetFloat(0.0f, chaos);
     }
   
-    level_ = fmaxf(ReadDrumMap() + part_perturbation_, 1.0f);
+    level_ = fminf(ReadDrumMap() + part_perturbation_, 1.0f);
     step_ = (step_ + 1) % kStepsPerPattern;
 }
 
@@ -77,8 +77,6 @@ bool EuclidianGenerator::Triggered() {
     size_t offset = 0;
     offset += length_ * kStepsPerPattern;
     offset += fill * kStepsPerPattern;
-
-    step_ = (step_ + 1) % length_;
 
     return lut_res_euclidean[offset] & (1L << static_cast<uint32_t>(step_));
 }
