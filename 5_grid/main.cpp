@@ -6,9 +6,11 @@ ccam::hw::Estuary hw;
 
 daisysp::Metro clock;
 float clk_freq = 240.0f / 60.0f;
+size_t clk_ticks = 0;
 size_t ticks_since_high = 0;
 
 constexpr size_t NumGenChannels = 2;
+constexpr size_t ClkInTimeout = 8;
 
 grids::PatternGenerator patGens[NumGenChannels];
 grids::EuclidianGenerator eucGens[NumGenChannels];
@@ -53,11 +55,18 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             size_t size) {
 
     if (hw.som.gate_in_1.Trig()) {
-        clk_freq = hw.som.AudioSampleRate() / static_cast<float>(ticks_since_high);
+        clk_ticks = ticks_since_high;
+        clk_freq = hw.som.AudioCallbackRate() / static_cast<float>(clk_ticks);
         clock.SetFreq(clk_freq);
         ticks_since_high = 0;
     } else {
-        ticks_since_high++;
+        if (ticks_since_high > clk_ticks * ClkInTimeout) {
+            clk_ticks = 0;
+            clk_freq = daisysp::fmap(hw.knobs[0]->Value(), 0.1f, 10.0f);
+            clock.SetFreq(clk_freq);
+        } else {
+            ticks_since_high++;
+        }
     }
 
     IsEuclidian() ? TickEucGen() : TickPatGen();
@@ -72,9 +81,8 @@ int main(void)
 
     clock.Init(clk_freq, hw.som.AudioSampleRate());
 
-    for (size_t i = 0; i < NumGenChannels; i++) {
-        patGens[i].SetInstrument(i);
-    }
+    patGens[0].SetInstrument(0); // bass drum
+    patGens[1].SetInstrument(2); // high hat
 
     bool ledOn = false;
     while(1) {
