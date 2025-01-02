@@ -58,6 +58,7 @@ public:
     }
 
     bool Triggered();
+    float GetLevel() { return level_; };
 private:
     float ReadDrumMap();
     float part_perturbation_;

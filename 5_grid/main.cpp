@@ -34,7 +34,10 @@ void TickPatGen() {
     }
 
     hw.som.gate_out_1.Write(patGens[0].Triggered());
+    hw.som.WriteCvOut(0, patGens[0].GetLevel() * 5.0f);
+
     hw.som.gate_out_2.Write(patGens[1].Triggered());
+    hw.som.WriteCvOut(0, patGens[0].GetLevel() * 5.0f);
 }
 
 void TickEucGen() {
