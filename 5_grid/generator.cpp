@@ -17,7 +17,7 @@
 //
 // Global clock.
 
-#include "pattern_generator.h"
+#include "generator.h"
 #include "resources.h"
 #include <per/rng.h>
 
@@ -56,29 +56,33 @@ float PatternGenerator::ReadDrumMap() {
     return interp(interp(a, b, x), interp(c, d, x), y);
 }
 
-bool PatternGenerator::Tick() {
-    // At the beginning of a pattern, decide on perturbation levels.
+void PatternGenerator::Tick() {
     if (step_ == 0) {
-        part_perturbation_ = daisy::Random::GetFloat(0.0f, randomness);
+        part_perturbation_ = daisy::Random::GetFloat(0.0f, chaos);
     }
   
-    float level = ReadDrumMap() + part_perturbation_;
-    level = fmaxf(level, 1.0f);
-
+    level_ = fmaxf(ReadDrumMap() + part_perturbation_, 1.0f);
     step_ = (step_ + 1) % kStepsPerPattern;
-
-    return (level > 1.0f - density);
 }
 
-bool EuclidianGenerator::Tick() {
+bool PatternGenerator::Triggered() {
+    return (level_ > 1.0f - fill);
+}
+
+void EuclidianGenerator::Tick() {
+    step_ = (step_ + 1) % length;
+}
+
+bool EuclidianGenerator::Triggered() {
     size_t offset = 0;
     offset += length * kStepsPerPattern;
-    offset += density * kStepsPerPattern;
+    offset += fill * kStepsPerPattern;
 
     step_ = (step_ + 1) % length;
 
     return lut_res_euclidean[offset] & (1L << static_cast<uint32_t>(step_));
 }
+
 
 }  // namespace grids
 

@@ -26,43 +26,53 @@
 #ifndef GRIDS_PATTERN_GENERATOR_H_
 #define GRIDS_PATTERN_GENERATOR_H_
 
-#include <cstring>
-
 namespace grids {
 
 constexpr uint8_t kGridSize = 5;
 constexpr uint8_t kNumParts = 3;
 constexpr uint8_t kStepsPerPattern = 32;
 
-class PatternGenerator {
+class DrumGenerator {
+public:
+    virtual void Reset() { step_ = 0; }
+    virtual void Tick();
+    virtual bool Triggered();
+protected:
+    uint8_t step_;
+};
+
+class PatternGenerator : public DrumGenerator {
 public:
     float x = 0.0f;
     float y = 0.0f;
-    float randomness = 0.0f;
-    float density = 0.0f;
+    float chaos = 0.0f;
+    float fill = 0.0f;
 
-    // 0 to 3 inclusive
-    uint8_t instrument = 0;
+    void Tick();
 
-    void Reset() { step_ = 0; }
-    bool Tick();
+    void SetInstrument(uint8_t inst) {
+        if (inst > 3) { 
+            inst = 3;
+        }
+        instrument = inst;
+    }
 
+    bool Triggered();
 private:
     float ReadDrumMap();
-
-    uint8_t step_;
     float part_perturbation_;
+    float level_;
+
+    uint8_t instrument = 0;
 };
 
-class EuclidianGenerator {
+class EuclidianGenerator : public DrumGenerator {
 public:
-    float density = 0.0f;
+    float fill = 0.0f;
     uint8_t length;
 
-    void Reset() { step_ = 0; }
-    bool Tick();
-private:
-    uint8_t step_;
+    void Tick();
+    bool Triggered();
 };
 
 }  // namespace grids
