@@ -31,12 +31,7 @@ static const uint8_t* drum_map[kGridSize][kGridSize] = {
   { node_24, node_19, node_17, node_20, node_22 },
 };
 
-float PatternGenerator::ReadDrumMap(
-    uint8_t step,
-    uint8_t instrument,
-    float x,
-    float y) {
-
+float PatternGenerator::ReadDrumMap() {
     auto parse_data = [&](uint8_t value) {
         return static_cast<float>(value) / static_cast<float>(0xFF);
     };
@@ -51,7 +46,7 @@ float PatternGenerator::ReadDrumMap(
     const uint8_t* b_map = drum_map[i + 1][j];
     const uint8_t* c_map = drum_map[i][j + 1];
     const uint8_t* d_map = drum_map[i + 1][j + 1];
-    uint8_t offset = (instrument * kStepsPerPattern) + step;
+    uint8_t offset = (instrument * kStepsPerPattern) + step_;
     offset = fminf(offset, kStepsPerPattern * kNumParts);
     float a = parse_data(a_map[offset]);
     float b = parse_data(b_map[offset]);
@@ -61,72 +56,28 @@ float PatternGenerator::ReadDrumMap(
     return interp(interp(a, b, x), interp(c, d, x), y);
 }
 
-void PatternGenerator::TickDrums() {
+bool PatternGenerator::Tick() {
     // At the beginning of a pattern, decide on perturbation levels.
     if (step_ == 0) {
-        for (uint8_t i = 0; i < kNumParts; ++i) {
-            part_perturbation_[i] = daisy::Random::GetFloat(0.0f, settings_.randomness);
-        }
+        part_perturbation_ = daisy::Random::GetFloat(0.0f, randomness);
     }
   
-    uint8_t instrument_mask = 1;
-    for (uint8_t i = 0; i < kNumParts; ++i) {
-        float level = ReadDrumMap(step_, i, settings_.x, settings_.y);
-        if (level < 1.0f - part_perturbation_[i]) {
-            level += part_perturbation_[i];
-        } else {
-            // The sequencer from Anushri uses a weird clipping rule here. Comment
-            // this line to reproduce its behavior.
-            level = 1.0f;
-        }
-        if (level > 1.0f - settings_.density[i]) {
-            state_ |= instrument_mask;
-        }
-        instrument_mask <<= 1;
-    }
+    float level = ReadDrumMap() + part_perturbation_;
+    level = fmaxf(level, 1.0f);
+
+    step_ = (step_ + 1) % kStepsPerPattern;
+
+    return (level > 1.0f - density);
 }
 
-void PatternGenerator::TickEuclidean() {
-    // Euclidean pattern generation
-    uint8_t instrument_mask = 1;
-    uint8_t reset_bits = 0;
-    for (uint8_t i = 0; i < kNumParts; ++i) {
-        uint8_t length = settings_.euclidean_length[i];
-        size_t offset = 0;
-        offset += length * kStepsPerPattern;
-        offset += settings_.density[i] * kStepsPerPattern;
-        while (euclidean_step_[i] >= length) {
-            euclidean_step_[i] -= length;
-        }
-        uint32_t step_mask = 1L << static_cast<uint32_t>(euclidean_step_[i]);
-        uint32_t pattern_bits = lut_res_euclidean[offset];
-        if (pattern_bits & step_mask) {
-            state_ |= instrument_mask;
-        }
-        if (euclidean_step_[i] == 0) {
-            reset_bits |= instrument_mask;
-        }
-        instrument_mask <<= 1;
-    }
-  
-    state_ |= reset_bits << 3;
-}
+bool EuclidianGenerator::Tick() {
+    size_t offset = 0;
+    offset += length * kStepsPerPattern;
+    offset += density * kStepsPerPattern;
 
-void PatternGenerator::Tick() {
-    auto inc_and_wrap = [&](uint8_t& value, uint8_t maxval) {
-        value = (value + 1) % maxval;
-    };
+    step_ = (step_ + 1) % length;
 
-    state_ = 0;
-    if (settings_.output_mode == OUTPUT_MODE_EUCLIDEAN) {
-        TickEuclidean();
-        for (uint8_t i = 0; i < kNumParts; ++i) {
-            inc_and_wrap(euclidean_step_[i], settings_.euclidean_length[i]);
-        }
-    } else {
-        TickDrums();
-        inc_and_wrap(step_, kStepsPerPattern);
-    }
+    return lut_res_euclidean[offset] & (1L << static_cast<uint32_t>(step_));
 }
 
 }  // namespace grids

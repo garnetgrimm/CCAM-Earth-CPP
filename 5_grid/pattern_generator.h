@@ -34,44 +34,35 @@ constexpr uint8_t kGridSize = 5;
 constexpr uint8_t kNumParts = 3;
 constexpr uint8_t kStepsPerPattern = 32;
 
-enum OutputMode {
-  OUTPUT_MODE_EUCLIDEAN,
-  OUTPUT_MODE_DRUMS
-};
-
-struct Settings {
-    float x;
-    float y;
-    float randomness;
-    OutputMode output_mode;
-    uint8_t euclidean_length[kNumParts];
-    float density[kNumParts];
-};
-
 class PatternGenerator {
- public:
-  PatternGenerator() { }
-  ~PatternGenerator() { }
-  
-    void Reset() {
-        step_ = 0;
-        memset(euclidean_step_, 0, sizeof(euclidean_step_));
-    }
-  
- private:
-    void Tick();
-    void TickEuclidean();
-    void TickDrums();
-  
-    float ReadDrumMap(uint8_t step, uint8_t instrument, float x, float y);
+public:
+    float x = 0.0f;
+    float y = 0.0f;
+    float randomness = 0.0f;
+    float density = 0.0f;
+
+    // 0 to 3 inclusive
+    uint8_t instrument = 0;
+
+    void Reset() { step_ = 0; }
+    bool Tick();
+
+private:
+    float ReadDrumMap();
 
     uint8_t step_;
-    uint8_t euclidean_step_[kNumParts];
-  
-    uint8_t state_;
-    float part_perturbation_[kNumParts];
+    float part_perturbation_;
+};
 
-    static Settings settings_;
+class EuclidianGenerator {
+public:
+    float density = 0.0f;
+    uint8_t length;
+
+    void Reset() { step_ = 0; }
+    bool Tick();
+private:
+    uint8_t step_;
 };
 
 }  // namespace grids
