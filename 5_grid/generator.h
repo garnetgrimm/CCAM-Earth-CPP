@@ -50,11 +50,11 @@ public:
 
     void Tick();
 
-    void SetInstrument(uint8_t inst) {
-        if (inst > 3) { 
-            inst = 3;
+    void SetInstrument(uint8_t instrument) {
+        if (instrument > 3) { 
+            instrument = 3;
         }
-        instrument = inst;
+        instrument_ = instrument;
     }
 
     bool Triggered();
@@ -62,17 +62,24 @@ private:
     float ReadDrumMap();
     float part_perturbation_;
     float level_;
-
-    uint8_t instrument = 0;
+    uint8_t instrument_;
 };
 
 class EuclidianGenerator : public DrumGenerator {
 public:
     float fill = 0.0f;
-    uint8_t length;
+
+    void SetLength(uint8_t length) {
+        if (length > kStepsPerPattern) {
+            length = kStepsPerPattern;
+        }
+        length_ = length;
+    }
 
     void Tick();
     bool Triggered();
+private:
+    uint8_t length_;
 };
 
 }  // namespace grids

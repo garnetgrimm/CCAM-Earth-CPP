@@ -46,7 +46,7 @@ float PatternGenerator::ReadDrumMap() {
     const uint8_t* b_map = drum_map[i + 1][j];
     const uint8_t* c_map = drum_map[i][j + 1];
     const uint8_t* d_map = drum_map[i + 1][j + 1];
-    uint8_t offset = (instrument * kStepsPerPattern) + step_;
+    uint8_t offset = (instrument_ * kStepsPerPattern) + step_;
     offset = fminf(offset, kStepsPerPattern * kNumParts);
     float a = parse_data(a_map[offset]);
     float b = parse_data(b_map[offset]);
@@ -70,15 +70,15 @@ bool PatternGenerator::Triggered() {
 }
 
 void EuclidianGenerator::Tick() {
-    step_ = (step_ + 1) % length;
+    step_ = (step_ + 1) % length_;
 }
 
 bool EuclidianGenerator::Triggered() {
     size_t offset = 0;
-    offset += length * kStepsPerPattern;
+    offset += length_ * kStepsPerPattern;
     offset += fill * kStepsPerPattern;
 
-    step_ = (step_ + 1) % length;
+    step_ = (step_ + 1) % length_;
 
     return lut_res_euclidean[offset] & (1L << static_cast<uint32_t>(step_));
 }

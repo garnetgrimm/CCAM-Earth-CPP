@@ -13,6 +13,41 @@ constexpr size_t NumGenChannels = 2;
 grids::PatternGenerator patGens[NumGenChannels];
 grids::EuclidianGenerator eucGens[NumGenChannels];
 
+bool IsEuclidian() {
+    if (hw.switches[1].Read() == daisy::Switch3::POS_CENTER) {
+        return false;
+    }
+    return true;
+}
+
+void TickPatGen() {
+    for (size_t i = 0; i < NumGenChannels; i++) {
+        if (clock.Process()) {
+            patGens[i].Tick();
+        }
+        patGens[i].x = hw.knobs[1]->Value();
+        patGens[i].y = hw.knobs[2]->Value();
+        patGens[i].chaos = hw.knobs[3]->Value();
+        patGens[i].fill = hw.knobs[i + 4]->Value();
+    }
+
+    hw.som.gate_out_1.Write(patGens[0].Triggered());
+    hw.som.gate_out_2.Write(patGens[1].Triggered());
+}
+
+void TickEucGen() {
+    for (size_t i = 0; i < NumGenChannels; i++) {
+        if (clock.Process()) {
+            eucGens[i].Tick();
+        }
+        eucGens[i].SetLength(static_cast<uint8_t>(hw.knobs[i]->Value() * grids::kStepsPerPattern));
+        eucGens[i].fill = hw.knobs[i + 4]->Value();
+    }
+
+    hw.som.gate_out_1.Write(eucGens[0].Triggered());
+    hw.som.gate_out_2.Write(eucGens[1].Triggered());
+}
+
 static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
             size_t size) {
@@ -25,20 +60,7 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
         ticks_since_high++;
     }
 
-    for (size_t i = 0; i < NumGenChannels; i++) {
-        if (clock.Process()) {
-            patGens[i].Tick();
-        }
-
-        patGens[i].x = hw.knobs[1]->Value();
-        patGens[i].y = hw.knobs[2]->Value();
-        patGens[i].chaos = hw.knobs[3]->Value();
-
-        patGens[i].fill = hw.knobs[4 + i]->Value();
-    }
-
-    hw.som.gate_out_1.Write(patGens[0].Triggered());
-    hw.som.gate_out_2.Write(patGens[1].Triggered());
+    IsEuclidian() ? TickEucGen() : TickPatGen();
 
     hw.PostProcess();
 }
