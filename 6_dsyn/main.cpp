@@ -2,41 +2,33 @@
 #include "daisysp.h"
 
 ccam::hw::Estuary hw;
+daisysp::Metro clock;
+daisysp::HiHat hihat;
 
-struct SyntheticHihat {
-    daisysp::WhiteNoise noise;
-    daisysp::Svf filter;
-    daisysp::Adsr adsr;
+daisysp::SyntheticBassDrum bass1;
+daisysp::AnalogBassDrum bass2;
 
-    void Init(float sample_rate) {
-        adsr.Init(sample_rate);
-        filter.Init(sample_rate);
+static void ConfigureBass(auto& drum) {
+    drum.SetFreq(daisysp::fmap(hw.knobs[0]->Value(), 10.0f, 200.0f));
+    drum.SetDecay(hw.knobs[1]->Value() + hw.cvins[1]->Value());
+    drum.SetAccent(hw.knobs[2]->Value());
+    // todo: add my own distortion
 
-        adsr.SetAttackTime(0.01);
-        adsr.SetDecayTime(0.0f);
-        adsr.SetSustainLevel(1.0f);
+    if (hw.som.gate_in_1.Trig()) {
+        drum.Trig();
     }
+}
 
-    float Process() {
-        filter.Process(noise.Process());
-        return filter.Band() * adsr.Process(true);
-    }
+static void ConfigureHihat() {
+    hihat.SetFreq(hw.knobs[4]->Value() + hw.cvins[2]->Value());
+    hihat.SetDecay(hw.knobs[5]->Value() + hw.cvins[3]->Value());
+    hihat.SetTone(hw.knobs[6]->Value());
+    hihat.SetNoisiness(hw.knobs[7]->Value());
 
-    void SetDecay(float timeInS) {
-        adsr.SetReleaseTime(timeInS);
+    if (hw.som.gate_in_2.Trig()) {
+        hihat.Trig();
     }
-    
-    void SetFreq(float f) {
-        filter.SetFreq(f);
-    }
-
-    void Trig() {
-        return adsr.Retrigger(true);
-    }
-};
-
-daisysp::SyntheticBassDrum bass;
-SyntheticHihat hihat;
+}
 
 static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
@@ -44,24 +36,17 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 
     hw.ProcessAllControls();
 
-    if (hw.som.gate_in_1.Trig()) {
-        bass.Trig();
-    }
-
-    if (hw.som.gate_in_2.Trig()) {
-        hihat.Trig();
-    }
-
-    bass.SetFreq(hw.knobs[0]->Value());
-    bass.SetDecay(hw.knobs[1]->Value() + hw.cvins[1]->Value());
-    bass.SetDirtiness(hw.knobs[2]->Value() + hw.cvins[0]->Value());
-    bass.SetAccent(hw.knobs[3]->Value());
-
-    hihat.SetFreq(hw.knobs[4]->Value() + hw.cvins[2]->Value());
-    hihat.SetDecay(hw.knobs[5]->Value() + hw.cvins[3]->Value());
+    bool bass_mode = hw.switches[1].Read() == daisy::Switch3::POS_CENTER;
+    
+    bass_mode ? ConfigureBass(bass1) : ConfigureBass(bass2);
+    ConfigureHihat();
 
     for (size_t i = 0; i < size; i++) {
-        OUT_L[i] = bass.Process();
+        if (clock.Process()) {
+            hw.som.gate_out_1.Toggle();
+        }
+
+        OUT_L[i] = bass_mode ? bass1.Process() : bass2.Process();
         OUT_R[i] = hihat.Process();
     }
 
@@ -71,10 +56,14 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 int main(void)
 {
     hw.Init();
-    bass.Init(hw.som.AudioSampleRate());
+    bass1.Init(hw.som.AudioSampleRate());
+    bass2.Init(hw.som.AudioSampleRate());
     hihat.Init(hw.som.AudioSampleRate());
+
+    clock.Init(4.0f, hw.som.AudioSampleRate());
     
     hw.StartAudio(AudioCallback);
+    hw.som.StartLog(false);
     
     bool ledOn = false;
     while(1) {
