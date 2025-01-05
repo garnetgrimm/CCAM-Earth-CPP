@@ -24,13 +24,10 @@ bool IsEuclidian() {
     return true;
 }
 
-void TickPatGen() {
+void TickPatGen(bool trig) {
     for (size_t i = 0; i < NumGenChannels; i++) {
-        if (clock.Process()) {
-            clocking = !clocking;
-            if (clocking) {
-                patGens[i].Tick();
-            }
+        if (trig) {
+            patGens[i].Tick();
         }
         patGens[i].x = hw.knobs[1]->Value();
         patGens[i].y = hw.knobs[2]->Value();
@@ -40,24 +37,25 @@ void TickPatGen() {
 
     if (clocking) {
         hw.som.gate_out_1.Write(patGens[0].Triggered());
+        hw.leds[1].Set(patGens[0].Triggered() ? 1.0f : 0.0f);
         hw.som.WriteCvOut(0, patGens[0].GetLevel() * 5.0f);
 
         hw.som.gate_out_2.Write(patGens[1].Triggered());
-        hw.som.WriteCvOut(0, patGens[0].GetLevel() * 5.0f);
+        hw.leds[2].Set(patGens[1].Triggered() ? 1.0f : 0.0f);
+        hw.som.WriteCvOut(0, patGens[1].GetLevel() * 5.0f);
     } else {
+        hw.leds[1].Set(0.0f);
+        hw.leds[2].Set(0.0f);
         hw.som.gate_out_1.Write(false);
         hw.som.gate_out_2.Write(false);
     }
 
 }
 
-void TickEucGen() {
+void TickEucGen(bool trig) {
     for (size_t i = 0; i < NumGenChannels; i++) {
-        if (clock.Process()) {
-            clocking = !clocking;
-            if (clocking) {
-                eucGens[i].Tick();
-            }
+        if (trig) {
+            eucGens[i].Tick();
         }
         eucGens[i].SetLength(static_cast<uint8_t>(hw.knobs[i]->Value() * grids::kStepsPerPattern));
         eucGens[i].fill = hw.knobs[i + 4]->Value();
@@ -76,6 +74,15 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
             size_t size) {
 
+    bool trig = false;
+    if (clock.Process()) {
+        clocking = !clocking;
+        trig = clocking;
+
+        hw.leds[0].Set(clocking ? 1.0f : 0.0f);
+    }
+
+    /*
     if (hw.som.gate_in_1.Trig()) {
         clk_ticks = ticks_since_high;
         clk_freq = hw.som.AudioCallbackRate() / static_cast<float>(clk_ticks);
@@ -88,8 +95,10 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
     } else {
         ticks_since_high++;
     }
+    */
 
-    IsEuclidian() ? TickEucGen() : TickPatGen();
+    //IsEuclidian() ? TickEucGen(trig) : TickPatGen(trig);
+    TickPatGen(trig);
 
     hw.PostProcess();
 }
@@ -99,15 +108,12 @@ int main(void)
     hw.Init();
     hw.StartAudio(AudioCallback);
 
-    clock.Init(clk_freq, hw.som.AudioSampleRate());
+    clock.Init(clk_freq, hw.som.AudioCallbackRate());
 
     patGens[0].SetInstrument(0); // bass drum
     patGens[1].SetInstrument(2); // high hat
 
-    bool ledOn = false;
     while(1) {
-        ledOn = !ledOn;
-        hw.leds[0].Set(ledOn ? 0.0f : 1.0f);
         daisy::System::Delay(1000);
     }
 }

@@ -22,7 +22,11 @@
 #include <per/rng.h>
 
 namespace grids {
-  
+
+static float interpf(float v1, float v2, float amt) {
+    return v1*amt + v2*(1.0f-amt);
+};
+
 static const uint8_t* drum_map[kGridSize][kGridSize] = {
   { node_10, node_8, node_0, node_9, node_11 },
   { node_15, node_7, node_13, node_12, node_6 },
@@ -32,12 +36,8 @@ static const uint8_t* drum_map[kGridSize][kGridSize] = {
 };
 
 float PatternGenerator::ReadDrumMap() {
-    auto parse_data = [&](uint8_t value) {
+    auto parse_data = [](uint8_t value) {
         return static_cast<float>(value) / static_cast<float>(0xFF);
-    };
-
-    auto interp = [&](float v1, float v2, float amt) {
-        return v1*amt + v2*(1.0f-amt);
     };
  
     uint8_t i = static_cast<uint8_t>(x * static_cast<float>(kGridSize));
@@ -53,7 +53,7 @@ float PatternGenerator::ReadDrumMap() {
     float c = parse_data(c_map[offset]);
     float d = parse_data(d_map[offset]);
 
-    return interp(interp(a, b, x), interp(c, d, x), y);
+    return interpf(interpf(a, b, x), interpf(c, d, x), y);
 }
 
 void PatternGenerator::Tick() {
