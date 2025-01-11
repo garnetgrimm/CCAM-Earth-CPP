@@ -37,6 +37,7 @@ public:
     virtual void Reset() { step_ = 0; }
     virtual void Tick() = 0;
     virtual bool Triggered() = 0;
+    virtual float GetLevel() { return Triggered() ? 1.0 : 0.0f; }
 protected:
     uint8_t step_;
 };
