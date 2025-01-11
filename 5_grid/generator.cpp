@@ -40,8 +40,8 @@ float PatternGenerator::ReadDrumMap() {
         return static_cast<float>(value) / static_cast<float>(0xFF);
     };
  
-    uint8_t i = static_cast<uint8_t>(x * static_cast<float>(kGridSize));
-    uint8_t j = static_cast<uint8_t>(y * static_cast<float>(kGridSize));
+    uint8_t i = static_cast<uint8_t>(fminf(x, 1.0f) * static_cast<float>(kGridSize));
+    uint8_t j = static_cast<uint8_t>(fminf(y, 1.0f) * static_cast<float>(kGridSize));
     const uint8_t* a_map = drum_map[i][j];
     const uint8_t* b_map = drum_map[i + 1][j];
     const uint8_t* c_map = drum_map[i][j + 1];

@@ -79,7 +79,7 @@ public:
 
     void Tick();
     bool Triggered();
-private:
+//private:
     uint8_t length_;
 };
 

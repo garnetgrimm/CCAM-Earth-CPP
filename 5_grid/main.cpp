@@ -5,7 +5,7 @@
 ccam::hw::Estuary hw;
 
 daisysp::Metro clock;
-float clk_freq = 240.0f / 60.0f;
+float clk_freq = 32.0;
 size_t clk_ticks = 0;
 size_t ticks_since_high = 0;
 
@@ -37,15 +37,13 @@ void TickPatGen(bool trig) {
 
     if (clocking) {
         hw.som.gate_out_1.Write(patGens[0].Triggered());
-        hw.leds[1].Set(patGens[0].Triggered() ? 1.0f : 0.0f);
+        hw.leds[1].Set(patGens[0].GetLevel());
         hw.som.WriteCvOut(0, patGens[0].GetLevel() * 5.0f);
 
         hw.som.gate_out_2.Write(patGens[1].Triggered());
-        hw.leds[2].Set(patGens[1].Triggered() ? 1.0f : 0.0f);
+        hw.leds[2].Set(patGens[1].GetLevel());
         hw.som.WriteCvOut(0, patGens[1].GetLevel() * 5.0f);
     } else {
-        hw.leds[1].Set(0.0f);
-        hw.leds[2].Set(0.0f);
         hw.som.gate_out_1.Write(false);
         hw.som.gate_out_2.Write(false);
     }
@@ -62,7 +60,10 @@ void TickEucGen(bool trig) {
     }
 
     if (clocking) {
+        hw.leds[1].Set(eucGens[0].Triggered() ? 5.0 : 0.0);
         hw.som.gate_out_1.Write(eucGens[0].Triggered());
+
+        hw.leds[2].Set(eucGens[1].Triggered() ? 5.0 : 0.0);
         hw.som.gate_out_2.Write(eucGens[1].Triggered());
     } else {
         hw.som.gate_out_1.Write(false);
@@ -74,6 +75,8 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
             size_t size) {
 
+    hw.ProcessAllControls();
+
     bool trig = false;
     if (clock.Process()) {
         clocking = !clocking;
@@ -82,7 +85,6 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
         hw.leds[0].Set(clocking ? 1.0f : 0.0f);
     }
 
-    /*
     if (hw.som.gate_in_1.Trig()) {
         clk_ticks = ticks_since_high;
         clk_freq = hw.som.AudioCallbackRate() / static_cast<float>(clk_ticks);
@@ -90,15 +92,14 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
         ticks_since_high = 0;
     } else if (ticks_since_high > clk_ticks * ClkInTimeout) {
         clk_ticks = 0;
-        clk_freq = daisysp::fmap(hw.knobs[0]->Value(), 0.1f, 10.0f);
+        clk_freq = daisysp::fmap(hw.knobs[0]->Value(), 0.1f, 100.0f);
         clock.SetFreq(2.0f * clk_freq);
     } else {
         ticks_since_high++;
     }
-    */
 
-    //IsEuclidian() ? TickEucGen(trig) : TickPatGen(trig);
-    TickPatGen(trig);
+    IsEuclidian() ? TickEucGen(trig) : TickPatGen(trig);
+    //TickPatGen(trig);
 
     hw.PostProcess();
 }
@@ -106,6 +107,7 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 int main(void)
 {
     hw.Init();
+    hw.som.StartLog(false);
     hw.StartAudio(AudioCallback);
 
     clock.Init(clk_freq, hw.som.AudioCallbackRate());
