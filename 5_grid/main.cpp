@@ -9,7 +9,7 @@ float clk_freq = 32.0;
 size_t clk_ticks = 0;
 size_t ticks_since_high = 0;
 
-constexpr size_t NumGenChannels = 2;
+constexpr size_t NumGenChannels = 3;
 constexpr size_t ClkInTimeout = 8;
 
 grids::PatternGenerator patGens[NumGenChannels];
@@ -21,6 +21,12 @@ daisysp::SyntheticBassDrum bass;
 daisysp::LadderFilter bvcf;
 daisysp::SyntheticSnareDrum snare;
 daisysp::LadderFilter svcf;
+daisysp::SyntheticSnareDrum hats;
+
+std::array<daisy::GPIO*, 2> gates = {
+    &hw.som.gate_out_1,
+    &hw.som.gate_out_2
+};
 
 bool IsEuclidian() {
     if (hw.switches[1].Read() == daisy::Switch3::POS_CENTER) {
@@ -31,11 +37,25 @@ bool IsEuclidian() {
 
 void SetChannelOut(uint8_t channel, grids::DrumGenerator& drum) {
     if (drum.Triggered()) {
-        channel ? snare.Trig() : bass.Trig();
+        switch(channel) {
+            case 0:
+                bass.Trig();
+                break;
+            case 1:
+                snare.Trig();
+                break;
+            case 2:
+                hats.Trig();
+                break;
+            default:
+                return;
+        }
     }
-    hw.som.gate_out_1.Write(drum.Triggered());
     hw.leds[channel].Set(drum.GetLevel());
-    hw.som.WriteCvOut(channel, drum.GetLevel() * 5.0f);
+    if (channel < gates.size()) {
+        hw.som.WriteCvOut(channel, drum.GetLevel() * 5.0f);
+        gates[channel]->Write(drum.Triggered());
+    }
 }
 
 void TickPatGen(bool trig) {
@@ -102,8 +122,11 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
     }
 
     for (size_t i = 0; i < size; i++) {
-        OUT_L[i] = bvcf.Process(bass.Process());
-        OUT_R[i] = svcf.Process(snare.Process()) * 0.10;
+        float b_samp = bvcf.Process(bass.Process());
+        float s_samp = svcf.Process(snare.Process()) * 0.10;
+        float h_samp = hats.Process() * 0.025;
+        OUT_L[i] = b_samp + (s_samp * 1.5) + (h_samp * 0.5);
+        OUT_R[i] = b_samp + (s_samp * 0.5) + (h_samp * 1.5);
     }
 
     hw.PostProcess();
@@ -112,25 +135,30 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 int main(void)
 {
     hw.Init();
+
     hw.som.StartLog(false);
 
     bass.Init(hw.som.AudioSampleRate());
     bvcf.Init(hw.som.AudioSampleRate());
     bvcf.SetFreq(200.0);
     bvcf.SetFilterMode(daisysp::LadderFilter::FilterMode::LP24);
+    
     snare.Init(hw.som.AudioSampleRate());
-    snare.SetDecay(0.1f);
     svcf.Init(hw.som.AudioSampleRate());
     svcf.SetFreq(1500.0);
     svcf.SetFilterMode(daisysp::LadderFilter::FilterMode::BP12);
+
+    hats.Init(hw.som.AudioSampleRate());
+    hats.SetDecay(0.1f);
 
     hw.StartAudio(AudioCallback);
 
     clock.Init(clk_freq, hw.som.AudioCallbackRate());
 
-    patGens[0].SetInstrument(0); // bass drum
-    patGens[1].SetInstrument(2); // high hat
-
+    for (size_t i = 0; i < NumGenChannels; i++) {
+        patGens[i].SetInstrument(i);
+    }
+    
     while(1) {
         daisy::System::Delay(1000);
     }
