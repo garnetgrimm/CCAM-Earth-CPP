@@ -46,13 +46,13 @@ struct Estuary {
         }
 
         switches[0].Init(
-            daisy::patch_sm::DaisyPatchSM::B7,
-            daisy::patch_sm::DaisyPatchSM::B8
+            daisy::patch_sm::DaisyPatchSM::B8,
+            daisy::patch_sm::DaisyPatchSM::B7
         );
 
         switches[1].Init(
-            daisy::patch_sm::DaisyPatchSM::A8,
-            daisy::patch_sm::DaisyPatchSM::A9
+            daisy::patch_sm::DaisyPatchSM::A9,
+            daisy::patch_sm::DaisyPatchSM::A8
         );
     }
 
