@@ -23,6 +23,11 @@ std::array<daisy::GPIO*, 2> gates = {
     &hw.som.gate_out_2
 };
 
+using Scale = std::array<uint8_t, 8>;
+
+Scale major_scale = { 0, 2, 4, 5, 7, 9, 11 };
+Scale minor_scale = { 0, 2, 3, 5, 7, 8, 10 };
+
 void Step8x1() {
     step_num = (step_num + 1) % 8;
 }
@@ -41,9 +46,52 @@ void StepGrid() {
     gens[1].Tick();
 }
 
+// daisysp has a mtof function, but not ftom..
+inline float ftom(float freq) {
+    return daisysp::fastlog2f((freq)/440.0f)*12.0f + 69.0f;
+}
+
+// frequency to 1v/oct helper
+inline float ftov(float freq)
+{
+    // assume 0V = A1
+    return daisysp::fastlog2f(freq/55.0f);
+}
+
+void quantize(Scale& scale, float& freq) {
+    float note = ftom(freq);
+    float octave = floorf(note / 12.0f);
+    note = fmodf(note, 12.0f);
+
+    uint8_t min_distance = 1.0f;
+    uint8_t min_idx = 0;
+    for (uint8_t i = 0; i < scale.size(); i++) {
+        uint8_t distance = abs(note - scale[i]);
+        if (distance < min_distance) {
+            min_idx =  i;
+            min_distance = distance;
+        }
+    }
+    note = scale[min_idx];
+    freq = daisysp::mtof(note + octave*12.0f);
+}
+
 void WriteStep(uint8_t channel, float value, bool trig) {
-    hw.som.WriteCvOut(channel, value*5.0f);
-    vcos[channel].SetFreq(daisysp::fmap(value, 44.0f, 440.0f));
+    float freq = daisysp::fmap(value, 88.0f, 880.0f);
+
+    switch(hw.switches[0].Read()) {
+        case daisy::Switch3::POS_LEFT:
+            break;
+        case daisy::Switch3::POS_CENTER:
+            quantize(major_scale, freq);
+            break;
+        case daisy::Switch3::POS_RIGHT:
+            quantize(minor_scale, freq);
+            break;
+    }
+
+    hw.som.WriteCvOut(channel, ftov(freq));
+    vcos[channel].SetFreq(freq);
     gates[channel]->Write(trig);
 };
 
@@ -104,6 +152,7 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
     {
         if (hw.som.gate_in_1.Trig()) {
             clk_freq = hw.som.AudioSampleRate() / static_cast<float>(ticks_since_high);
+            clk_freq = daisysp::fclamp(clk_freq, 0.1f, 60.0f);
             clock.SetFreq(clk_freq * 2.0f);
             ticks_since_high = 0;
         } else {
