@@ -6,12 +6,6 @@
 ccam::hw::Estuary hw;
 
 daisysp::Metro clock;
-// HZ = (BPM / 60)
-float clk_freq = 240.0f / 60.0f;
-
-size_t ticks_since_high = 0;
-float inverse_sample_rate = 0.0f;
-
 bool clocking = false;
 
 uint8_t step_num = 0;
@@ -156,15 +150,6 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 
     for (size_t i = 0; i < size; i++)
     {
-        if (hw.som.gate_in_1.Trig()) {
-            clk_freq = hw.som.AudioSampleRate() / static_cast<float>(ticks_since_high);
-            clk_freq = daisysp::fclamp(clk_freq, 0.1f, 60.0f);
-            clock.SetFreq(clk_freq * 2.0f);
-            ticks_since_high = 0;
-        } else {
-            ticks_since_high++;
-        }
-
         if (clock.Process()) {
             if (clocking) {
                 Process();
@@ -188,7 +173,8 @@ int main(void)
     hw.Init();
     
     hw.som.StartLog(false);
-    clock.Init(clk_freq, hw.som.AudioSampleRate());
+    clock.Init(0.0f, hw.som.AudioSampleRate());
+    clock.SetFreq(4.0f);
 
     vcos[0].Init(hw.som.AudioSampleRate());
     vcos[1].Init(hw.som.AudioSampleRate());
@@ -199,7 +185,10 @@ int main(void)
     hw.StartAudio(AudioCallback);
 
     while(1) {
-        hw.som.PrintLine("Step %d tempo %f", step_num+1, clk_freq);
         daisy::System::Delay(100);
+
+        if (hw.switches[1].Read() == daisy::Switch3::POS_RIGHT) {
+            clock.SetFreq(daisysp::fmap(hw.knobs[3]->Value(), 0.1f, 30.0f));
+        }
     }
 }
