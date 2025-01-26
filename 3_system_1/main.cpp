@@ -93,7 +93,7 @@ void WriteStep(uint8_t channel, float value, bool trig) {
             break;
     }
 
-    hw.som.WriteCvOut(channel, ftov(freq));
+    hw.som.WriteCvOut(1 - channel, ftov(freq)); //cv channels switched??
     vcos[channel].SetFreq(freq);
     gates[channel]->Write(trig);
 };
@@ -169,7 +169,9 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             if (clocking) {
                 Process();
             } else {
-                hw.som.gate_out_1.Write(false);
+                for (daisy::GPIO* gate : gates) {
+                    gate->Write(false);
+                }
             }
             clocking = !clocking;
         }
