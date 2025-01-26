@@ -1,6 +1,7 @@
 #include "estuary.h"
 #include "daisysp.h"
 #include "generator.h"
+#include "smoothosc.h"
 
 ccam::hw::Estuary hw;
 
@@ -16,7 +17,9 @@ bool clocking = false;
 uint8_t step_num = 0;
 static uint8_t seq_step = 1;
 
-std::array<daisysp::Oscillator, 2> vcos;
+float max_frequency = 440.0f;
+
+std::array<SmoothOsc, 2> vcos;
 std::array<grids::PatternGenerator, 2> gens;
 std::array<daisy::GPIO*, 2> gates = {
     &hw.som.gate_out_1,
@@ -77,7 +80,7 @@ void quantize(Scale& scale, float& freq) {
 }
 
 void WriteStep(uint8_t channel, float value, bool trig) {
-    float freq = daisysp::fmap(value, 88.0f, 880.0f);
+    float freq = daisysp::fmap(value, 88.0f, max_frequency);
 
     switch(hw.switches[0].Read()) {
         case daisy::Switch3::POS_LEFT:
@@ -124,6 +127,9 @@ void Process() {
                 gens[i].y = hw.knobs[1]->Value();
                 gens[i].chaos = hw.knobs[2]->Value();
                 gens[i].fill = hw.knobs[i + 4]->Value();
+
+                vcos[i].SetWaveshape(hw.knobs[6]->Value());
+                max_frequency = daisysp::fmap(hw.knobs[7]->Value(), 110.0f, 880.0f);
             }
 
             for (int i = 0; i < 8; i++) {
