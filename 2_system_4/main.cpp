@@ -9,6 +9,8 @@ class SimpleEnv {
     float elapsed = 1.0f;
     float delta = 1.0f;
     float length = 0.5f;
+    float amp = 1.0f;
+    float slew = 0.95;
 
 public:
     void Init(float sample_rate) {
@@ -32,7 +34,7 @@ public:
             trig = true;
         }
 
-        float amp = daisysp::pow10f(-1.0f * length * elapsed);
+        amp = (amp * slew) + ((1.0f - slew) * daisysp::pow10f(-1.0f * length * elapsed));
         elapsed += delta;
         return amp;
     }
@@ -138,7 +140,7 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 
     tone_drum.SetFreq(tone_freq);
     tone_drum.SetLength(tone_len);
-    tone_drum.SetFmAmount(hw.knobs[2]->Value());
+    tone_drum.SetFmAmount(hw.knobs[2]->Value() * 0.1);
     tone_drum.SetFmLength(hw.knobs[3]->Value());
 
     noise_drum.SetFreq(noise_freq);
