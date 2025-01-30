@@ -4,9 +4,13 @@
 ccam::hw::Estuary hw;
 
 daisysp::Metro metro;
-daisysp::Adsr adsr;
-daisysp::LadderFilter vcf1;
-daisysp::LadderFilter vcf2;
+std::array<daisysp::Adsr, 2> adsrs;
+std::array<daisysp::LadderFilter, 2> vcfs;
+std::array<daisy::GateIn*, 2> gates = {
+    &hw.som.gate_in_1,
+    &hw.som.gate_in_2,
+};
+std::array<float, 2> out_val;
 
 daisysp::LadderFilter::FilterMode filter_mode_1() {
     switch(hw.switches[0].Read()) {
@@ -33,7 +37,7 @@ daisysp::LadderFilter::FilterMode filter_mode_2() {
 }
 
 float knob_cv_combo(uint8_t kidx, uint8_t cidx) {
-    return hw.knobs[kidx]->Value() + hw.cvins[cidx]->Value();
+    return hw.knobs[kidx]->Value() + hw.cvins[cidx]->Value() - 0.5f;
 }
 
 static void AudioCallback(daisy::AudioHandle::InputBuffer in,
@@ -41,30 +45,36 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             size_t size) {
     hw.ProcessAllControls();
 
-    vcf1.SetFilterMode(filter_mode_1());
-    vcf2.SetFilterMode(filter_mode_2());
+    vcfs[0].SetFilterMode(filter_mode_1());
+    vcfs[1].SetFilterMode(filter_mode_2());
 
-    adsr.SetAttackTime(hw.knobs[0]->Value());
-    adsr.SetDecayTime(hw.knobs[1]->Value());
-    adsr.SetSustainLevel(hw.knobs[2]->Value());
-    adsr.SetReleaseTime(hw.knobs[3]->Value());
-
-    vcf1.SetFreq(daisysp::fmap(knob_cv_combo(4, 0), 8.0f, 8000.0f));
-    vcf1.SetRes(knob_cv_combo(5, 1));
-
-    vcf2.SetFreq(daisysp::fmap(knob_cv_combo(6, 2), 8.0f, 8000.0f));
-    vcf2.SetRes(knob_cv_combo(7, 3));
-
-    if (hw.som.gate_in_2.Trig()) {
-        adsr.Retrigger(false);
+    for (daisy::Led& led : hw.leds) {
+        led.Set(0.0f);
     }
-    hw.som.WriteCvOut(0, adsr.Process(hw.som.gate_in_1.State()) * 5.0f);
+
+    for (daisysp::Adsr& adsr : adsrs) {
+        adsr.SetAttackTime(hw.knobs[0]->Value());
+        adsr.SetDecayTime(hw.knobs[1]->Value());
+        adsr.SetSustainLevel(hw.knobs[2]->Value());
+        adsr.SetReleaseTime(hw.knobs[3]->Value());
+    }
+
+    for (uint8_t i = 0; i < vcfs.size(); i++) {
+        vcfs[i].SetFreq(daisysp::fmap(knob_cv_combo(4 + i*2, 0 + i*2), 0.1f, 15000.0f));
+        vcfs[i].SetRes(knob_cv_combo(5 + i*2, 1 + i*2));
+        out_val[i] = adsrs[i].Process(gates[i]->State());
+        hw.som.WriteCvOut(i, out_val[1-i] * 5.0f);
+
+        uint8_t led = adsrs[i].GetCurrentSegment();
+        if (led == 4) { led--; } // who knows
+        hw.leds[i*4].Set(out_val[i]);
+
+    }
 
     for (size_t i = 0; i < size; i++)
     {
-        
-        OUT_L[i] = vcf1.Process(IN_L[i]);
-        OUT_R[i] = vcf2.Process(IN_R[i]);
+        OUT_L[i] = vcfs[0].Process(IN_L[i]);
+        OUT_R[i] = vcfs[1].Process(IN_R[i]);
     }
 
     hw.PostProcess();
@@ -73,16 +83,15 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 int main(void)
 {
     hw.Init();
-    vcf1.Init(hw.som.AudioSampleRate());
-    vcf2.Init(hw.som.AudioSampleRate());
-    adsr.Init(hw.som.AudioCallbackRate());
+    for (daisysp::LadderFilter& vcf : vcfs) {
+        vcf.Init(hw.som.AudioSampleRate());
+    }
+    for (daisysp::Adsr& adsr : adsrs) {
+        adsr.Init(hw.som.AudioCallbackRate());
+    }
     hw.som.StartLog(false);
     hw.StartAudio(AudioCallback);
-    bool ledOn = false;
     while(1) {
-        ledOn = !ledOn;
-        hw.leds[0].Set(ledOn ? 0.0f : 1.0f);
-        hw.som.PrintLine("CV0 %f", fabs(hw.cvins[0]->Value()));
-        daisy::System::Delay(250);
+        daisy::System::Delay(1000);
     }
 }

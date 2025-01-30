@@ -39,6 +39,13 @@ float PatternGenerator::ReadDrumMap() {
     auto parse_data = [](uint8_t value) {
         return static_cast<float>(value) / static_cast<float>(0xFF);
     };
+<<<<<<< Updated upstream:2_system_1/generator.cpp
+=======
+
+    auto interp = [&](float& v1, float& v2, float& amt) {
+        return v1*amt + v2*(1.0f-amt);
+    };
+>>>>>>> Stashed changes:5_grid/generator.cpp
  
     uint8_t i = static_cast<uint8_t>(fminf(x, 1.0f) * static_cast<float>(kGridSize));
     uint8_t j = static_cast<uint8_t>(fminf(y, 1.0f) * static_cast<float>(kGridSize));
@@ -46,14 +53,28 @@ float PatternGenerator::ReadDrumMap() {
     const uint8_t* b_map = drum_map[i + 1][j];
     const uint8_t* c_map = drum_map[i][j + 1];
     const uint8_t* d_map = drum_map[i + 1][j + 1];
+
     uint8_t offset = (instrument_ * kStepsPerPattern) + step_;
-    offset = fminf(offset, kStepsPerPattern * kNumParts);
+    const uint8_t max_offset = kStepsPerPattern * kNumParts;
+    if (offset > max_offset) offset = max_offset;
+
     float a = parse_data(a_map[offset]);
     float b = parse_data(b_map[offset]);
     float c = parse_data(c_map[offset]);
     float d = parse_data(d_map[offset]);
 
+<<<<<<< Updated upstream:2_system_1/generator.cpp
     return interpf(interpf(a, b, x), interpf(c, d, x), y);
+=======
+    float A = interp(a, b, x);
+    float B = interp(c, d, x);
+    float C = interp(A, B, y);
+
+    c_ = c;
+    d_ = d;
+
+    return 0.0;
+>>>>>>> Stashed changes:5_grid/generator.cpp
 }
 
 void PatternGenerator::Tick() {

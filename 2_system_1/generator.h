@@ -48,6 +48,7 @@ public:
     float y = 0.0f;
     float chaos = 0.0f;
     float fill = 0.0f;
+    float c_, d_;
 
     void Tick();
 
