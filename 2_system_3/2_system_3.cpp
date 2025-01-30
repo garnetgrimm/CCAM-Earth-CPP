@@ -1,7 +1,7 @@
-#include "estuary.h"
+#include <ccam/hw/estuary.h>
 #include "daisysp.h"
 
-#include "shaper.h"
+#include <ccam/utils/shaper.h>
 #include <Effects/decimator.h>
 #include <Effects/chorus.h>
 
@@ -13,6 +13,8 @@ ccam::hw::Estuary hw;
 Shaper shape;
 daisysp::Decimator decimate;
 daisysp::ReverbSc verb;
+daisysp::Metro metro;
+bool clocking = false;
 
 float interpf(float v1, float v2, float amt) {
     return v1*(1.0f-amt) + v2*amt;
@@ -37,8 +39,17 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 
     float wet = hw.knobs[6]->Value();
 
+    metro.SetFreq(daisysp::fmap(hw.knobs[7]->Value(), 0.1f, 256.0f));
+
     for (size_t i = 0; i < size; i++)
     {
+        if (metro.Process()) {
+            clocking = !clocking;
+            hw.som.gate_out_1.Write(clocking);
+            hw.som.gate_out_2.Write(clocking);
+            hw.leds[0].Set(clocking ? 0.0f : 1.0f);
+        }
+
         float left_in, left_out;
         float right_in, right_out;
         
@@ -89,12 +100,10 @@ int main(void)
     decimate.Init();
     decimate.SetSmoothCrushing(true);
     verb.Init(hw.som.AudioSampleRate());
+    metro.Init(1.0f, hw.som.AudioSampleRate());
     hw.StartAudio(AudioCallback);
 
-    bool ledOn = false;
     while(1) {
-        ledOn = !ledOn;
-        hw.leds[0].Set(ledOn ? 0.0f : 1.0f);
         daisy::System::Delay(250);
     }
 }
