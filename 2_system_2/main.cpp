@@ -37,7 +37,9 @@ daisysp::LadderFilter::FilterMode filter_mode_2() {
 }
 
 float knob_cv_combo(uint8_t kidx, uint8_t cidx) {
-    return hw.knobs[kidx]->Value() + hw.cvins[cidx]->Value() - 0.5f;
+    float value = hw.knobs[kidx]->Value() + hw.cvins[cidx]->Value();
+    value -= 0.015; // noise
+    return daisysp::fclamp(value, 0.0, 1.0f);
 }
 
 static void AudioCallback(daisy::AudioHandle::InputBuffer in,
