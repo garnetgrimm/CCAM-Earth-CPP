@@ -7,7 +7,6 @@ class DelayEnv {
     float length = 0.5f;
     float amp = 1.0f;
     float slew = 0.95;
-
 public:
     void Init(float sample_rate);
     void SetLength(float length);

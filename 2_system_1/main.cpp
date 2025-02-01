@@ -3,6 +3,7 @@
 #include <ccam/hw/estuary.h>
 #include <ccam/voice/smoothosc.h>
 #include <ccam/utils/quantizer.h>
+#include <ccam/utils/delayenv.h>
 
 ccam::hw::Estuary hw;
 
@@ -18,10 +19,8 @@ uint8_t scale = 0;
 float chance = 1.0;
 
 std::array<SmoothOsc, 2> vcos;
-std::array<daisy::GPIO*, 2> gates = {
-    &hw.som.gate_out_1,
-    &hw.som.gate_out_2
-};
+std::array<DelayEnv, 2> envs;
+std::array<bool, 2> gates;
 
 void Step8x1() {
     step_num = (step_num + 1) % 8;
@@ -64,7 +63,7 @@ void WriteStep(uint8_t channel, float value, bool trig) {
     float freq = daisysp::mtof(note);
     hw.som.WriteCvOut(1 - channel, ftov(freq)); //cv channels switched??
     vcos[channel].SetFreq(freq);
-    gates[channel]->Write(trig);
+    gates[channel] = trig;
 };
 
 float randf() {
@@ -90,13 +89,24 @@ void Process() {
             for (size_t i = 0; i < vcos.size(); i++) {
                 vcos[i].SetWaveshape(hw.knobs[4 + i]->Value());
             }
+            for (DelayEnv& env : envs) {
+                env.SetLength(hw.knobs[2]->Value());
+            }
             chance = hw.knobs[0]->Value();
             midi_start = daisysp::fmap(hw.knobs[6]->Value(), 1.0f, 100.f);
             midi_range = daisysp::fmap(hw.knobs[7]->Value(), 1.0f, 36.0f);
-            WriteStep(0, randf(), randf() < chance);
-            WriteStep(1, randf(), randf() < chance);
+            if (randf() < chance) {
+                WriteStep(0, randf(), true);
+            }
+            if (randf() < chance) {
+                WriteStep(1, randf(), true);
+            }
+            hw.leds[0].Set(gates[0] ? 1.0f : 0.0f);
+            hw.leds[1].Set(gates[1] ? 1.0f : 0.0f);
             break;
     }
+    hw.som.gate_out_1.Write(gates[0]);
+    hw.som.gate_out_2.Write(gates[1]);
 }
 
 static void AudioCallback(daisy::AudioHandle::InputBuffer in,
@@ -119,15 +129,16 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             if (clocking) {
                 Process();
             } else {
-                for (daisy::GPIO* gate : gates) {
-                    gate->Write(false);
-                }
+                gates[0] = false;
+                gates[1] = false;
+                hw.som.gate_out_1.Write(false);
+                hw.som.gate_out_2.Write(false);
             }
             clocking = !clocking;
         }
 
-        OUT_L[i] = vcos[0].Process();
-        OUT_R[i] = vcos[1].Process();
+        OUT_L[i] = vcos[0].Process() * envs[0].Process(gates[0]);
+        OUT_R[i] = vcos[1].Process() * envs[1].Process(gates[1]);
     }
 
     hw.PostProcess();
@@ -143,6 +154,10 @@ int main(void)
 
     for (SmoothOsc& vco : vcos) {
         vco.Init(hw.som.AudioSampleRate());
+    }
+
+    for (DelayEnv& env : envs) {
+        env.Init(hw.som.AudioSampleRate());
     }
 
     hw.StartAudio(AudioCallback);
