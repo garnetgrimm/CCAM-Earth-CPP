@@ -1,8 +1,8 @@
-#include "estuary.h"
 #include "daisysp.h"
-#include "generator.h"
-#include "smoothosc.h"
-#include "quantizer.h"
+
+#include <ccam/hw/estuary.h>
+#include <ccam/voice/smoothosc.h>
+#include <ccam/utils/quantizer.h>
 
 ccam::hw::Estuary hw;
 

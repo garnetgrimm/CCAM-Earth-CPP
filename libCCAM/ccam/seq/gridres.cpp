@@ -21,7 +21,7 @@
 // make resources
 
 
-#include "resources.h"
+#include "gridres.h"
 
 namespace grids {
 

@@ -17,8 +17,8 @@
 //
 // Global clock.
 
-#include "generator.h"
-#include "resources.h"
+#include "gridseq.h"
+#include "gridres.h"
 #include <per/rng.h>
 
 namespace grids {

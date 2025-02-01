@@ -1,4 +1,6 @@
 #include <array>
+#include <cstdint>
+#include <math.h>
 
 class Quantizer {
     static float apply(auto& scale, float& note) {

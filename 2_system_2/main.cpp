@@ -1,4 +1,4 @@
-#include "estuary.h"
+#include <ccam/hw/estuary.h>
 #include "daisysp.h"
 
 ccam::hw::Estuary hw;

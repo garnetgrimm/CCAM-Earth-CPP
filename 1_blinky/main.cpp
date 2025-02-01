@@ -1,4 +1,4 @@
-#include "earth.h"
+#include <ccam/hw/earth.h>
 #include "daisysp.h"
 
 ccam::hw::Earth hw;
