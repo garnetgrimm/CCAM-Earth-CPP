@@ -2,6 +2,7 @@
 #include "daisysp.h"
 #include "generator.h"
 #include "smoothosc.h"
+#include "quantizer.h"
 
 ccam::hw::Estuary hw;
 
@@ -11,19 +12,15 @@ bool clocking = false;
 uint8_t step_num = 0;
 static uint8_t seq_step = 1;
 
-float max_frequency = 440.0f;
+float midi_start = 10.0f;
+float midi_range = 36.0f;
+uint8_t scale = 0;
 
 std::array<SmoothOsc, 2> vcos;
-std::array<grids::PatternGenerator, 2> gens;
 std::array<daisy::GPIO*, 2> gates = {
     &hw.som.gate_out_1,
     &hw.som.gate_out_2
 };
-
-using Scale = std::array<uint8_t, 8>;
-
-Scale major_scale = { 0, 2, 4, 5, 7, 9, 11 };
-Scale minor_scale = { 0, 2, 3, 5, 7, 8, 10 };
 
 void Step8x1() {
     step_num = (step_num + 1) % 8;
@@ -38,16 +35,6 @@ void Step4x2() {
     step_num = (step_num + seq_step) % 4;
 }
 
-void StepGrid() {
-    gens[0].Tick();
-    gens[1].Tick();
-}
-
-// daisysp has a mtof function, but not ftom..
-inline float ftom(float freq) {
-    return daisysp::fastlog2f((freq)/440.0f)*12.0f + 69.0f;
-}
-
 // frequency to 1v/oct helper
 inline float ftov(float freq)
 {
@@ -55,38 +42,10 @@ inline float ftov(float freq)
     return daisysp::fastlog2f(freq/55.0f);
 }
 
-void quantize(Scale& scale, float& freq) {
-    float note = ftom(freq);
-    float octave = floorf(note / 12.0f);
-    note = fmodf(note, 12.0f);
-
-    uint8_t min_distance = 1.0f;
-    uint8_t min_idx = 0;
-    for (uint8_t i = 0; i < scale.size(); i++) {
-        uint8_t distance = abs(note - scale[i]);
-        if (distance < min_distance) {
-            min_idx =  i;
-            min_distance = distance;
-        }
-    }
-    note = scale[min_idx];
-    freq = daisysp::mtof(note + octave*12.0f);
-}
-
 void WriteStep(uint8_t channel, float value, bool trig) {
-    float freq = daisysp::fmap(value, 88.0f, max_frequency);
-
-    switch(hw.switches[0].Read()) {
-        case daisy::Switch3::POS_LEFT:
-            break;
-        case daisy::Switch3::POS_CENTER:
-            quantize(major_scale, freq);
-            break;
-        case daisy::Switch3::POS_RIGHT:
-            quantize(minor_scale, freq);
-            break;
-    }
-
+    float note = daisysp::fmap(value, midi_start, midi_start + midi_range);
+    note = Quantizer::apply(static_cast<Quantizer::Scale>(scale), note);
+    float freq = daisysp::mtof(note);
     hw.som.WriteCvOut(1 - channel, ftov(freq)); //cv channels switched??
     vcos[channel].SetFreq(freq);
     gates[channel]->Write(trig);
@@ -97,10 +56,6 @@ float randf() {
 }
 
 void Process() {
-    for (uint8_t i = 0; i < hw.leds.size(); i++) {
-        hw.leds[i].Set(0.0);
-    }
-
     switch(hw.switches[1].Read()) {
         case daisy::Switch3::POS_LEFT:
             Step8x1();
@@ -116,29 +71,13 @@ void Process() {
             hw.leds[step_num+4].Set(1.0f);
             break;
         case daisy::Switch3::POS_RIGHT:
-            for (size_t i = 0; i < gens.size(); i++) {
-                gens[i].x = hw.knobs[0]->Value();
-                gens[i].y = hw.knobs[1]->Value();
-                gens[i].chaos = hw.knobs[2]->Value();
-                gens[i].fill = hw.knobs[i + 4]->Value();
-
-                vcos[i].SetWaveshape(hw.knobs[6]->Value());
-                max_frequency = daisysp::fmap(hw.knobs[7]->Value(), 110.0f, 880.0f);
+            for (size_t i = 0; i < vcos.size(); i++) {
+                vcos[i].SetWaveshape(hw.knobs[0 + i*4]->Value());
             }
-
-            for (int i = 0; i < 8; i++) {
-                StepGrid();
-
-                if (gens[0].Triggered()) {
-                    WriteStep(0, randf(), gens[0].Triggered());
-                    hw.leds[0].Set(gens[0].Triggered() ? 1.0f : 0.0f);
-                }
-                if (gens[1].Triggered()) {
-                    WriteStep(1, randf(), gens[1].Triggered());
-                    hw.leds[1].Set(gens[1].Triggered() ? 1.0f : 0.0f);
-                }
-            }
-            
+            midi_start = daisysp::fmap(hw.knobs[6]->Value(), 1.0f, 100.f);
+            midi_range = daisysp::fmap(hw.knobs[7]->Value(), 1.0f, 36.0f);
+            WriteStep(0, randf(), true);
+            WriteStep(1, randf(), true);
             break;
     }
 }
@@ -147,6 +86,15 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
             size_t size) {
     hw.ProcessAllControls();
+
+    for (uint8_t i = 0; i < hw.leds.size(); i++) {
+        hw.leds[i].Set(0.0);
+    }
+
+    if (hw.switches[1].Read() == daisy::Switch3::POS_RIGHT) {
+        scale = hw.knobs[1]->Value() * 8.0f;
+        hw.leds[scale].Set(1.0f);
+    }
 
     for (size_t i = 0; i < size; i++)
     {
@@ -176,11 +124,9 @@ int main(void)
     clock.Init(0.0f, hw.som.AudioSampleRate());
     clock.SetFreq(4.0f);
 
-    vcos[0].Init(hw.som.AudioSampleRate());
-    vcos[1].Init(hw.som.AudioSampleRate());
-
-    gens[0].SetInstrument(0);
-    gens[1].SetInstrument(1);
+    for (SmoothOsc& vco : vcos) {
+        vco.Init(hw.som.AudioSampleRate());
+    }
 
     hw.StartAudio(AudioCallback);
 
