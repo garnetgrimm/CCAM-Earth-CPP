@@ -15,6 +15,7 @@ static uint8_t seq_step = 1;
 float midi_start = 10.0f;
 float midi_range = 36.0f;
 uint8_t scale = 0;
+float chance = 1.0;
 
 std::array<SmoothOsc, 2> vcos;
 std::array<daisy::GPIO*, 2> gates = {
@@ -42,8 +43,23 @@ inline float ftov(float freq)
     return daisysp::fastlog2f(freq/55.0f);
 }
 
+float ChannelNoteOffset(uint8_t channel) {
+    if (channel == 0) {
+        return 0;
+    }
+    switch (hw.switches[0].Read()) {
+        case daisy::Switch3::POS_CENTER:
+            return 7.0f;
+        case daisy::Switch3::POS_RIGHT:
+            return 12.0f;
+        default:
+            return 0;
+    }
+}
+
 void WriteStep(uint8_t channel, float value, bool trig) {
     float note = daisysp::fmap(value, midi_start, midi_start + midi_range);
+    note += ChannelNoteOffset(channel);
     note = Quantizer::apply(static_cast<Quantizer::Scale>(scale), note);
     float freq = daisysp::mtof(note);
     hw.som.WriteCvOut(1 - channel, ftov(freq)); //cv channels switched??
@@ -72,12 +88,13 @@ void Process() {
             break;
         case daisy::Switch3::POS_RIGHT:
             for (size_t i = 0; i < vcos.size(); i++) {
-                vcos[i].SetWaveshape(hw.knobs[0 + i*4]->Value());
+                vcos[i].SetWaveshape(hw.knobs[4 + i]->Value());
             }
+            chance = hw.knobs[0]->Value();
             midi_start = daisysp::fmap(hw.knobs[6]->Value(), 1.0f, 100.f);
             midi_range = daisysp::fmap(hw.knobs[7]->Value(), 1.0f, 36.0f);
-            WriteStep(0, randf(), true);
-            WriteStep(1, randf(), true);
+            WriteStep(0, randf(), randf() < chance);
+            WriteStep(1, randf(), randf() < chance);
             break;
     }
 }
