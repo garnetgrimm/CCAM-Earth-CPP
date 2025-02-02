@@ -1,7 +1,7 @@
 #include <ccam/hw/estuary.h>
 #include "daisysp.h"
 
-#include "shaper.h"
+#include <ccam/utils/shaper.h>
 #include <Effects/decimator.h>
 #include <Effects/chorus.h>
 

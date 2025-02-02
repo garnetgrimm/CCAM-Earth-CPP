@@ -38,7 +38,7 @@ daisysp::LadderFilter::FilterMode filter_mode_2() {
 
 float knob_cv_combo(uint8_t kidx, uint8_t cidx) {
     float value = hw.knobs[kidx]->Value() + hw.cvins[cidx]->Value();
-    value -= 0.015; // noise
+    value -= 0.1; // noise
     return daisysp::fclamp(value, 0.0, 1.0f);
 }
 
