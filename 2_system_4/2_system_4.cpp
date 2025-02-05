@@ -11,7 +11,7 @@ bool ledOn = false;
 ccam::hw::Estuary hw;
 
 daisysp::Metro clock;
-bool clocking = false;
+uint8_t clock_cycle = 0;
 
 std::array<grids::PatternGenerator, 2> patgens;
 
@@ -80,21 +80,24 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
     for (size_t i = 0; i < size; i++)
     {
         if (clock.Process()) {
-            if (clocking) {
+            if (clock_cycle % 1 == 0) {
                 Process();
             } else {
                 gates[0] = false;
                 gates[1] = false;
             }
-            clocking = !clocking;
+            clock_cycle++;
+            if (clock_cycle == 32) {
+                clock_cycle = 0;
+            }
         }
         
         OUT_L[i] = tone_drum.Process(gates[0]);
         OUT_R[i] = noise_drum.Process(gates[1]);
 
-        hw.leds[0].Set(gates[0] ? 1.0f : 0.0f);
-        hw.leds[1].Set(gates[1] ? 1.0f : 0.0f);
-        hw.leds[2].Set(clocking ? 1.0f : 0.0f);
+        hw.leds[0].Set(tone_drum.GetCurrAmp());
+        hw.leds[1].Set(noise_drum.GetCurrAmp());
+        hw.leds[2].Set((clock_cycle == 0) ? 1.0f : 0.0f);
     }
 
     hw.PostProcess();
@@ -147,6 +150,6 @@ int main(void)
 
     while(1) {
         daisy::System::Delay(100);
-        clock.SetFreq(daisysp::fmap(tempo.Value(), 0.1f, 30.0f)*32.0f);
+        clock.SetFreq(daisysp::fmap(tempo.Value(), 1.0f, 256.0f));
     }
 }

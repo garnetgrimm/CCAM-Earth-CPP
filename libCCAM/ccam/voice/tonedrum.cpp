@@ -32,5 +32,10 @@ float ToneDrum::Process(bool gate) {
         freq = freq_target;
     }
     voice.SetFreq(freq + (fm_env.Process(gate) * fm));
-    return amp * voice.Process() * amp_env.Process(gate);
+    curr_amp = amp_env.Process(gate);
+    return amp * voice.Process() * curr_amp;
+}
+
+float ToneDrum::GetCurrAmp() {
+    return curr_amp;
 }

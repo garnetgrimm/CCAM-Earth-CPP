@@ -24,5 +24,10 @@ float NoiseDrum::Process(bool gate) {
         filter.SetFreq(freq);
     }
 
-    return amp * filter.Process(noise.Process()) * env.Process(gate);
+    curr_amp = env.Process(gate);
+    return amp * filter.Process(noise.Process()) * curr_amp;
+}
+
+float NoiseDrum::GetCurrAmp() {
+    return curr_amp;
 }

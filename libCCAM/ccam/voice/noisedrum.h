@@ -9,10 +9,12 @@ class NoiseDrum {
     DelayEnv env;
     float amp;
     float freq;
+    float curr_amp;
 public:
     void Init(float sample_rate);
     void SetLength(float len);
     void SetFreq(float freq);
+    float GetCurrAmp();
     void SetAmp(float amp);
     float Process(bool gate);
 };

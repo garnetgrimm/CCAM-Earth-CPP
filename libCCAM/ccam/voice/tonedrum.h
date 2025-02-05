@@ -11,6 +11,7 @@ class ToneDrum {
     float amp;
     float freq;
     float freq_target;
+    float curr_amp;
 public:
     void Init(float sample_rate);
     void SetFreq(float freq);
@@ -18,5 +19,6 @@ public:
     void SetFmAmount(float fm);
     void SetFmLength(float len);
     void SetAmp(float amp);
+    float GetCurrAmp();
     float Process(bool gate);
 };
