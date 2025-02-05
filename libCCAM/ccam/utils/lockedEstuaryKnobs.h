@@ -8,9 +8,9 @@
 struct LockedEstaury {
     std::array<LockedAnalogControl, 8> knobs;
 
-    void Init(ccam::hw::Estuary& hw, uint8_t switch_num) {
+    void Init(ccam::hw::Estuary& hw, uint8_t switch_num, uint8_t mask) {
         for (uint8_t i = 0; i < hw.knobs.size(); i++) {
-            knobs[i].Init(hw.knobs[i], &hw.switches[switch_num]);
+            knobs[i].Init(hw.knobs[i], &hw.switches[switch_num], mask);
         }
     }
     void Process() {
@@ -18,7 +18,11 @@ struct LockedEstaury {
             knob.Process();
         } 
     }
-    float Value(uint8_t knob_idx, uint8_t switch_pos) {
-        return knobs[knob_idx].Value(switch_pos);
+    float Value(uint8_t knob_idx) {
+        return knobs[knob_idx].Value();
+    }
+
+    LockedAnalogControl& Get(uint8_t knob_idx) {
+        return knobs[knob_idx];
     }
 };

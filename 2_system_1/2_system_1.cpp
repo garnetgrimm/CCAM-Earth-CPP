@@ -5,6 +5,7 @@
 #include <ccam/utils/quantizer.h>
 #include <ccam/utils/delayenv.h>
 #include <ccam/utils/lockedEstuaryKnobs.h>
+#include <ccam/utils/gubbins.h>
 
 ccam::hw::Estuary hw;
 
@@ -23,7 +24,9 @@ std::array<SmoothOsc, 2> vcos;
 std::array<DelayEnv, 2> envs;
 std::array<bool, 2> gates;
 
-LockedEstaury locked_knobs;
+LockedEstaury knobs_8x1;
+LockedEstaury knobs_2x4;
+LockedEstaury knobs_ctrl;
 
 void Step8x1() {
     step_num = (step_num + 1) % 8;
@@ -36,13 +39,6 @@ void Step4x2() {
         seq_step = 1;
     }
     step_num = (step_num + seq_step) % 4;
-}
-
-// frequency to 1v/oct helper
-inline float ftov(float freq)
-{
-    // assume 0V = A1
-    return daisysp::fastlog2f(freq/55.0f);
 }
 
 float ChannelNoteOffset(uint8_t channel) {
@@ -69,35 +65,31 @@ void WriteStep(uint8_t channel, float value, bool trig) {
     gates[channel] = trig;
 };
 
-float randf() {
-    return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-}
-
 void Process() {
     switch(hw.switches[1].Read()) {
         case daisy::Switch3::POS_LEFT:
             Step8x1();
-            WriteStep(0, locked_knobs.Value(step_num, daisy::Switch3::POS_LEFT), true);
+            WriteStep(0, knobs_8x1.Value(step_num), true);
             WriteStep(1, randf(), true);
             hw.leds[step_num].Set(1.0f);
             break;
         case daisy::Switch3::POS_CENTER:
             Step4x2();
-            WriteStep(0, locked_knobs.Value(step_num, daisy::Switch3::POS_CENTER), true);
-            WriteStep(1, locked_knobs.Value(step_num+4, daisy::Switch3::POS_CENTER), true);
+            WriteStep(0, knobs_2x4.Value(step_num), true);
+            WriteStep(1, knobs_2x4.Value(step_num+4), true);
             hw.leds[step_num].Set(1.0f);
             hw.leds[step_num+4].Set(1.0f);
             break;
         case daisy::Switch3::POS_RIGHT:
             for (size_t i = 0; i < vcos.size(); i++) {
-                vcos[i].SetWaveshape(locked_knobs.Value(4 + i, daisy::Switch3::POS_RIGHT));
+                vcos[i].SetWaveshape(knobs_ctrl.Value(4 + i));
             }
             for (DelayEnv& env : envs) {
-                env.SetLength(locked_knobs.Value(2, daisy::Switch3::POS_RIGHT));
+                env.SetLength(knobs_ctrl.Value(2));
             }
             chance = hw.knobs[0]->Value();
-            midi_start = daisysp::fmap(locked_knobs.Value(6, daisy::Switch3::POS_RIGHT), 1.0f, 100.f);
-            midi_range = daisysp::fmap(locked_knobs.Value(7, daisy::Switch3::POS_RIGHT), 1.0f, 36.0f);
+            midi_start = daisysp::fmap(knobs_ctrl.Value(6), 1.0f, 100.f);
+            midi_range = daisysp::fmap(knobs_ctrl.Value(7), 1.0f, 36.0f);
             if (randf() < chance) {
                 WriteStep(0, randf(), true);
             }
@@ -116,13 +108,15 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
             size_t size) {
     hw.ProcessAllControls();
-    locked_knobs.Process();
+    knobs_8x1.Process();
+    knobs_2x4.Process();
+    knobs_ctrl.Process();
 
     for (uint8_t i = 0; i < hw.leds.size(); i++) {
         hw.leds[i].Set(0.0);
     }
 
-    scale = locked_knobs.Value(1, daisy::Switch3::POS_RIGHT) * 8.0f;
+    scale = knobs_ctrl.Value(1) * 8.0f;
     if (hw.switches[1].Read() == daisy::Switch3::POS_RIGHT) {
         hw.leds[scale].Set(1.0f);
     }
@@ -159,11 +153,12 @@ int main(void)
         hw.ProcessAllControls();
     }
 
-    locked_knobs.Init(hw, 1);
+    knobs_8x1.Init(hw, 1, (1 << daisy::Switch3::POS_LEFT));
+    knobs_2x4.Init(hw, 1, (1 << daisy::Switch3::POS_CENTER));
+    knobs_ctrl.Init(hw, 1, (1 << daisy::Switch3::POS_RIGHT));
     
     hw.som.StartLog(false);
-    clock.Init(0.0f, hw.som.AudioSampleRate());
-    clock.SetFreq(4.0f);
+    clock.Init(4.0f, hw.som.AudioSampleRate());
 
     for (SmoothOsc& vco : vcos) {
         vco.Init(hw.som.AudioSampleRate());
@@ -177,6 +172,6 @@ int main(void)
 
     while(1) {
         daisy::System::Delay(100);
-        clock.SetFreq(daisysp::fmap(locked_knobs.Value(3, daisy::Switch3::POS_RIGHT), 0.1f, 30.0f));
+        clock.SetFreq(daisysp::fmap(knobs_ctrl.Value(3), 0.1f, 30.0f));
     }
 }

@@ -3,38 +3,43 @@
 #include <array>
 
 class LockedAnalogControl {
-    std::array<float, 3> values;
-    daisy::AnalogControl* knob;
-    daisy::Switch3* sw;
-    uint8_t last_pos = -1;
+    float val;
     float last_val = 0.0f;
+    uint8_t mask = 0;
     bool awake = true;
+    bool selected = false;
+    daisy::Switch3* sw;
+    daisy::AnalogControl* ctrl;
 public:
     float tolerance = 0.10f; 
 
-    void Init(daisy::AnalogControl* knob, daisy::Switch3* sw) {
-        this->knob = knob;
+    void Init(daisy::AnalogControl* ctrl, daisy::Switch3* sw, uint8_t mask) {
+        this->ctrl = ctrl;
         this->sw = sw;
-        for (size_t i = 0; i < values.size(); i++) {
-            values[i] = knob->Value();
-        }
+        this->mask = mask;
+        val = ctrl->Value();
     }
 
     void Process() {
-        uint8_t curr_pos = sw->Read();
-        float curr_val = knob->Value();
-        if (curr_pos != last_pos) {
-            last_val = curr_val;
+        if (((1 << sw->Read()) & mask) == 0) {
+            selected = false;
             awake = false;
+            return;
+        }
+        float curr_val = ctrl->Value();
+        if (!selected) {
+            last_val = curr_val;
+            selected = true;
         }
         if (fabs(curr_val - last_val) > tolerance) {
             awake = true;
         }
-        values[curr_pos] = awake ? curr_val : values[curr_pos];
-        last_pos = curr_pos;
+        if (awake) {
+            val = curr_val;
+        }
     }
 
-    float Value(uint8_t switch_pos) {
-        return values[switch_pos];
+    float Value() {
+        return val;
     }
 };
