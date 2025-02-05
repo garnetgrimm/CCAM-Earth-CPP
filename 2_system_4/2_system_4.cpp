@@ -111,7 +111,10 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 
     for (size_t i = 0; i < size; i++)
     {
-        if (clock.Process()) {
+        if (hw.switches[1].Read() == daisy::Switch3::POS_LEFT) {
+            gates[0] = hw.som.gate_in_1.State();
+            gates[1] = hw.som.gate_in_2.State();
+        } else if (clock.Process()) {
             if (clock_cycle % 1 == 0) {
                 Process();
             } else {
