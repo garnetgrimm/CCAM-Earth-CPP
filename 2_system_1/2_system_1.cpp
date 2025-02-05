@@ -4,6 +4,7 @@
 #include <ccam/voice/smoothosc.h>
 #include <ccam/utils/quantizer.h>
 #include <ccam/utils/delayenv.h>
+#include <ccam/utils/lockedEstuaryKnobs.h>
 
 ccam::hw::Estuary hw;
 
@@ -21,6 +22,8 @@ float chance = 1.0;
 std::array<SmoothOsc, 2> vcos;
 std::array<DelayEnv, 2> envs;
 std::array<bool, 2> gates;
+
+LockedEstaury locked_knobs;
 
 void Step8x1() {
     step_num = (step_num + 1) % 8;
@@ -74,27 +77,27 @@ void Process() {
     switch(hw.switches[1].Read()) {
         case daisy::Switch3::POS_LEFT:
             Step8x1();
-            WriteStep(0, hw.knobs[step_num]->Value(), true);
+            WriteStep(0, locked_knobs.Value(step_num, daisy::Switch3::POS_LEFT), true);
             WriteStep(1, randf(), true);
             hw.leds[step_num].Set(1.0f);
             break;
         case daisy::Switch3::POS_CENTER:
             Step4x2();
-            WriteStep(0, hw.knobs[step_num]->Value(), true);
-            WriteStep(1, hw.knobs[step_num+4]->Value(), true);
+            WriteStep(0, locked_knobs.Value(step_num, daisy::Switch3::POS_CENTER), true);
+            WriteStep(1, locked_knobs.Value(step_num+4, daisy::Switch3::POS_CENTER), true);
             hw.leds[step_num].Set(1.0f);
             hw.leds[step_num+4].Set(1.0f);
             break;
         case daisy::Switch3::POS_RIGHT:
             for (size_t i = 0; i < vcos.size(); i++) {
-                vcos[i].SetWaveshape(hw.knobs[4 + i]->Value());
+                vcos[i].SetWaveshape(locked_knobs.Value(4 + i, daisy::Switch3::POS_RIGHT));
             }
             for (DelayEnv& env : envs) {
-                env.SetLength(hw.knobs[2]->Value());
+                env.SetLength(locked_knobs.Value(2, daisy::Switch3::POS_RIGHT));
             }
             chance = hw.knobs[0]->Value();
-            midi_start = daisysp::fmap(hw.knobs[6]->Value(), 1.0f, 100.f);
-            midi_range = daisysp::fmap(hw.knobs[7]->Value(), 1.0f, 36.0f);
+            midi_start = daisysp::fmap(locked_knobs.Value(6, daisy::Switch3::POS_RIGHT), 1.0f, 100.f);
+            midi_range = daisysp::fmap(locked_knobs.Value(7, daisy::Switch3::POS_RIGHT), 1.0f, 36.0f);
             if (randf() < chance) {
                 WriteStep(0, randf(), true);
             }
@@ -113,13 +116,14 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
             size_t size) {
     hw.ProcessAllControls();
+    locked_knobs.Process();
 
     for (uint8_t i = 0; i < hw.leds.size(); i++) {
         hw.leds[i].Set(0.0);
     }
 
+    scale = locked_knobs.Value(1, daisy::Switch3::POS_RIGHT) * 8.0f;
     if (hw.switches[1].Read() == daisy::Switch3::POS_RIGHT) {
-        scale = hw.knobs[1]->Value() * 8.0f;
         hw.leds[scale].Set(1.0f);
     }
 
@@ -147,6 +151,15 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 int main(void)
 {
     hw.Init();
+
+    // give it a few cycles to initialize the knob values
+    // otherwise everything is silent or 100%
+    for (size_t i = 0; i < 10; i++) {
+        daisy::System::Delay(1);
+        hw.ProcessAllControls();
+    }
+
+    locked_knobs.Init(hw, 1);
     
     hw.som.StartLog(false);
     clock.Init(0.0f, hw.som.AudioSampleRate());
@@ -164,9 +177,6 @@ int main(void)
 
     while(1) {
         daisy::System::Delay(100);
-
-        if (hw.switches[1].Read() == daisy::Switch3::POS_RIGHT) {
-            clock.SetFreq(daisysp::fmap(hw.knobs[3]->Value(), 0.1f, 30.0f));
-        }
+        clock.SetFreq(daisysp::fmap(locked_knobs.Value(3, daisy::Switch3::POS_RIGHT), 0.1f, 30.0f));
     }
 }

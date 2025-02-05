@@ -23,10 +23,10 @@ public:
         NONE,
         ALL,
         MAJOR,
-        MAJOR_PENTATONIC,
         MINOR,
-        MINOR_PENTATONIC,
-        OCTATONIC,
+        OCTATONIC_EVEN,
+        OCTATONIC_ODD,
+        LYDIAN_DOM,
         PHRYGIAN_DOM,
     };
 
