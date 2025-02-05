@@ -3,17 +3,25 @@
 #include <ccam/voice/noisedrum.h>
 #include <ccam/utils/lockedEstuaryKnobs.h>
 #include <ccam/utils/gubbins.h>
+#include <ccam/seq/gridseq.h>
 #include "daisysp.h"
 
 bool ledOn = false;
 
 ccam::hw::Estuary hw;
+
 daisysp::Metro clock;
+bool clocking = false;
+
+std::array<grids::PatternGenerator, 2> patgens;
 
 ToneDrum tone_drum;
 NoiseDrum noise_drum;
 
 using LockedCvKnob = CvKnob<LockedAnalogControl, daisy::AnalogControl>;
+
+LockedEstaury knobs_vco;
+LockedEstaury knobs_seq;
 
 LockedCvKnob tone_decay;
 LockedCvKnob tone_freq;
@@ -26,10 +34,22 @@ LockedCvKnob noise_freq;
 LockedCvKnob tone_amp;
 LockedCvKnob noise_amp;
 
+LockedCvKnob x_ctrl;
+LockedCvKnob y_ctrl;
+LockedCvKnob chaos;
 LockedCvKnob tempo;
 
-LockedEstaury knobs_vco;
-LockedEstaury knobs_seq;
+LockedCvKnob tone_fill;
+LockedCvKnob noise_fill;
+
+std::array<bool, 2> gates;
+
+void Process() {
+    for (uint8_t channel = 0; channel < patgens.size(); channel++) {
+        patgens[channel].Tick();
+        gates[channel] = patgens[channel].Triggered();
+    }
+}
 
 static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
@@ -49,18 +69,32 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
     tone_drum.SetAmp(tone_amp.Value());
     noise_drum.SetAmp(noise_amp.Value());
 
-    bool tone_trig = hw.som.gate_in_1.Trig();
-    bool noise_trig = hw.som.gate_in_2.Trig();
+    for (grids::PatternGenerator& patgen : patgens) {
+        patgen.x = x_ctrl.Value();
+        patgen.y = y_ctrl.Value();
+        patgen.chaos = chaos.Value();
+    }
+    patgens[0].fill = tone_fill.Value();
+    patgens[1].fill = noise_fill.Value();
 
     for (size_t i = 0; i < size; i++)
     {
         if (clock.Process()) {
-            ledOn = !ledOn;
-            hw.leds[0].Set(ledOn ? 0.0f : 1.0f);
+            if (clocking) {
+                Process();
+            } else {
+                gates[0] = false;
+                gates[1] = false;
+            }
+            clocking = !clocking;
         }
         
-        OUT_L[i] = tone_drum.Process(tone_trig);
-        OUT_R[i] = noise_drum.Process(noise_trig);
+        OUT_L[i] = tone_drum.Process(gates[0]);
+        OUT_R[i] = noise_drum.Process(gates[1]);
+
+        hw.leds[0].Set(gates[0] ? 1.0f : 0.0f);
+        hw.leds[1].Set(gates[1] ? 1.0f : 0.0f);
+        hw.leds[2].Set(clocking ? 1.0f : 0.0f);
     }
 
     hw.PostProcess();
@@ -91,7 +125,16 @@ int main(void)
     tone_amp.Init(&knobs_vco.Get(6), nullptr);
     noise_amp.Init(&knobs_vco.Get(7), nullptr);
 
+    x_ctrl.Init(&knobs_seq.Get(0), nullptr);
+    y_ctrl.Init(&knobs_seq.Get(1), nullptr);
+    chaos.Init(&knobs_seq.Get(2), nullptr);
     tempo.Init(&knobs_seq.Get(3), nullptr);
+
+    tone_fill.Init(&knobs_seq.Get(4), nullptr);
+    noise_fill.Init(&knobs_seq.Get(5), nullptr);
+
+    patgens[0].SetInstrument(0);
+    patgens[1].SetInstrument(1);
 
     hw.som.StartLog(false);
 
@@ -104,6 +147,6 @@ int main(void)
 
     while(1) {
         daisy::System::Delay(100);
-        clock.SetFreq(daisysp::fmap(tempo.Value(), 0.1f, 30.0f));
+        clock.SetFreq(daisysp::fmap(tempo.Value(), 0.1f, 30.0f)*32.0f);
     }
 }
