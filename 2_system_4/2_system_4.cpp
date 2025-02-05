@@ -42,6 +42,13 @@ LockedCvKnob tempo;
 LockedCvKnob tone_fill;
 LockedCvKnob noise_fill;
 
+std::array<LockedCvKnob*, 14> cvknobs = {
+    &tone_decay, &tone_freq, &fm_amount, &fm_decay,
+    &noise_decay, &noise_freq, &tone_amp, &noise_amp,
+    &x_ctrl, &y_ctrl, &chaos, &tempo, &tone_fill,
+    &noise_fill
+};
+
 std::array<bool, 2> gates;
 
 void Process() {
@@ -57,6 +64,31 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
     hw.ProcessAllControls();
     knobs_vco.Process();
     knobs_seq.Process();
+
+    for (LockedCvKnob* cvknob : cvknobs) {
+        cvknob->cvin = nullptr;
+    }
+
+    switch (hw.switches[0].Read()) {
+        case daisy::Switch3::POS_LEFT:
+            tone_decay.cvin = hw.cvins[0];
+            tone_freq.cvin = hw.cvins[1];
+            noise_decay.cvin = hw.cvins[2];
+            noise_freq.cvin = hw.cvins[3];
+            break;
+        case daisy::Switch3::POS_CENTER:
+            x_ctrl.cvin = hw.cvins[0];
+            chaos.cvin = hw.cvins[1];
+            tone_fill.cvin = hw.cvins[2];
+            noise_fill.cvin = hw.cvins[3];
+            break;
+        case daisy::Switch3::POS_RIGHT:
+            tone_decay.cvin = hw.cvins[0];
+            noise_decay.cvin = hw.cvins[1];
+            tone_fill.cvin = hw.cvins[2];
+            noise_fill.cvin = hw.cvins[3];
+            break;
+    }
 
     tone_drum.SetFreq(daisysp::fmap(tone_freq.Value(), 5.0f, 880.0f));
     tone_drum.SetLength(1.0f - tone_decay.Value());
@@ -118,10 +150,10 @@ int main(void)
     knobs_vco.Init(hw, 1, (1 << daisy::Switch3::POS_LEFT) | (1 << daisy::Switch3::POS_CENTER));
     knobs_seq.Init(hw, 1, (1 << daisy::Switch3::POS_RIGHT));
 
-    tone_decay.Init(&knobs_vco.Get(0), hw.cvins[0]);
-    tone_freq.Init(&knobs_vco.Get(1), hw.cvins[1]);
-    fm_amount.Init(&knobs_vco.Get(2), hw.cvins[2]);
-    fm_decay.Init(&knobs_vco.Get(3), hw.cvins[3]);
+    tone_decay.Init(&knobs_vco.Get(0), nullptr);
+    tone_freq.Init(&knobs_vco.Get(1), nullptr);
+    fm_amount.Init(&knobs_vco.Get(2), nullptr);
+    fm_decay.Init(&knobs_vco.Get(3), nullptr);
 
     noise_decay.Init(&knobs_vco.Get(4), nullptr);
     noise_freq.Init(&knobs_vco.Get(5), nullptr);
