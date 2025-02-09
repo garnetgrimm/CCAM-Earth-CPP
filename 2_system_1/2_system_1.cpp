@@ -6,11 +6,11 @@
 #include <ccam/utils/delayenv.h>
 #include <ccam/utils/lockedEstuaryKnobs.h>
 #include <ccam/utils/gubbins.h>
+#include <ccam/utils/gateclock.h>
 
 ccam::hw::Estuary hw;
 
-daisysp::Metro clock;
-bool clocking = false;
+GateClock<LockedAnalogControl> clock;
 
 uint8_t step_num = 0;
 static uint8_t seq_step = 1;
@@ -123,16 +123,15 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 
     for (size_t i = 0; i < size; i++)
     {
-        if (clock.Process()) {
-            if (clocking) {
-                Process();
-            } else {
-                gates[0] = false;
-                gates[1] = false;
-                hw.som.gate_out_1.Write(false);
-                hw.som.gate_out_2.Write(false);
-            }
-            clocking = !clocking;
+        clock.Process();
+        if (clock.RisingEdge()) {
+            Process();
+        }
+        if (clock.FallingEdge()) {
+            gates[0] = false;
+            gates[1] = false;
+            hw.som.gate_out_1.Write(false);
+            hw.som.gate_out_2.Write(false);
         }
 
         OUT_L[i] = vcos[0].Process() * envs[0].Process(gates[0]);
@@ -158,7 +157,7 @@ int main(void)
     knobs_ctrl.Init(hw, 1, (1 << daisy::Switch3::POS_RIGHT));
     
     hw.som.StartLog(false);
-    clock.Init(4.0f, hw.som.AudioSampleRate());
+    clock.Init(&hw.som.gate_in_1, &knobs_ctrl.Get(3), hw.som.AudioSampleRate());
 
     for (SmoothOsc& vco : vcos) {
         vco.Init(hw.som.AudioSampleRate());
@@ -172,6 +171,5 @@ int main(void)
 
     while(1) {
         daisy::System::Delay(100);
-        clock.SetFreq(daisysp::fmap(knobs_ctrl.Value(3), 0.1f, 30.0f));
     }
 }

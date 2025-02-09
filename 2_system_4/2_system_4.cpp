@@ -4,14 +4,15 @@
 #include <ccam/utils/lockedEstuaryKnobs.h>
 #include <ccam/utils/gubbins.h>
 #include <ccam/seq/gridseq.h>
+#include <ccam/utils/gateclock.h>
+
 #include "daisysp.h"
 
 bool ledOn = false;
 
 ccam::hw::Estuary hw;
 
-daisysp::Metro clock;
-uint8_t clock_cycle = 0;
+GateClock<LockedAnalogControl> clock;
 
 std::array<grids::PatternGenerator, 2> patgens;
 
@@ -37,7 +38,6 @@ LockedCvKnob noise_amp;
 LockedCvKnob x_ctrl;
 LockedCvKnob y_ctrl;
 LockedCvKnob chaos;
-LockedCvKnob tempo;
 
 LockedCvKnob tone_fill;
 LockedCvKnob noise_fill;
@@ -45,8 +45,7 @@ LockedCvKnob noise_fill;
 std::array<LockedCvKnob*, 14> cvknobs = {
     &tone_decay, &tone_freq, &fm_amount, &fm_decay,
     &noise_decay, &noise_freq, &tone_amp, &noise_amp,
-    &x_ctrl, &y_ctrl, &chaos, &tempo, &tone_fill,
-    &noise_fill
+    &x_ctrl, &y_ctrl, &chaos, &tone_fill, &noise_fill
 };
 
 std::array<bool, 2> gates;
@@ -114,16 +113,14 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
         if (hw.switches[1].Read() == daisy::Switch3::POS_LEFT) {
             gates[0] = hw.som.gate_in_1.State();
             gates[1] = hw.som.gate_in_2.State();
-        } else if (clock.Process()) {
-            if (clock_cycle % 1 == 0) {
+        } else {
+            clock.Process();
+            if (clock.RisingEdge()) {
                 Process();
-            } else {
+            }
+            if (clock.FallingEdge()) {
                 gates[0] = false;
                 gates[1] = false;
-            }
-            clock_cycle++;
-            if (clock_cycle == 32) {
-                clock_cycle = 0;
             }
         }
         
@@ -132,7 +129,6 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 
         hw.leds[0].Set(tone_drum.GetCurrAmp());
         hw.leds[1].Set(noise_drum.GetCurrAmp());
-        hw.leds[2].Set((clock_cycle == 0) ? 1.0f : 0.0f);
     }
 
     hw.PostProcess();
@@ -166,7 +162,6 @@ int main(void)
     x_ctrl.Init(&knobs_seq.Get(0), nullptr);
     y_ctrl.Init(&knobs_seq.Get(1), nullptr);
     chaos.Init(&knobs_seq.Get(2), nullptr);
-    tempo.Init(&knobs_seq.Get(3), nullptr);
 
     tone_fill.Init(&knobs_seq.Get(4), nullptr);
     noise_fill.Init(&knobs_seq.Get(5), nullptr);
@@ -176,7 +171,7 @@ int main(void)
 
     hw.som.StartLog(false);
 
-    clock.Init(10.0f, hw.som.AudioSampleRate());
+    clock.Init(&hw.som.gate_in_1, &knobs_seq.Get(3), hw.som.AudioSampleRate());
 
     tone_drum.Init(hw.som.AudioSampleRate());
     noise_drum.Init(hw.som.AudioSampleRate());
@@ -185,6 +180,5 @@ int main(void)
 
     while(1) {
         daisy::System::Delay(100);
-        clock.SetFreq(daisysp::fmap(tempo.Value(), 1.0f, 256.0f));
     }
 }
