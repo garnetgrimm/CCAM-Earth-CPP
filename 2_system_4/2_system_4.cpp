@@ -117,8 +117,10 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             clock.Process();
             if (clock.RisingEdge()) {
                 Process();
+                hw.leds[2].Set(1.0f);
             }
             if (clock.FallingEdge()) {
+                hw.leds[2].Set(0.0f);
                 gates[0] = false;
                 gates[1] = false;
             }

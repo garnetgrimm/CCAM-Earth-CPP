@@ -42,7 +42,7 @@ void Step4x2() {
 }
 
 float ChannelNoteOffset(uint8_t channel) {
-    if (channel == 0) {
+    if (channel == 1) {
         return 0;
     }
     switch (hw.switches[0].Read()) {

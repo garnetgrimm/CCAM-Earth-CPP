@@ -40,6 +40,7 @@ public:
     void Process() {
         gate_active = true;
         if (clk->Trig()) {
+            metro.Reset();
             clk_freq = sample_rate / static_cast<float>(ticks_since_high);
             ticks_since_high = 0;
         } else if (ticks_since_high < timeout_ticks) {
