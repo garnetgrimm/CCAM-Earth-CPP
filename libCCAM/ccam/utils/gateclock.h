@@ -4,29 +4,33 @@
 
 template <typename Ctrl>
 class GateClock {
-    daisysp::Metro metro;
-    size_t ticks_since_high = -1;
+    size_t last_tick = 0;
     float sample_rate;
     bool changed = false;
     bool is_high = false;
-    size_t timeout_ticks = 0;
-    bool gate_active = false;
+    bool input_active = false;
 
     daisy::GateIn* clk;
     Ctrl* knob;
+    float progress = 0.0f;
+    float step = 0.0f;
+    float base_freq = 0.0f;
 public:
-    float clk_freq = 0.0f;
+    float timeout = 10.0f;
+    size_t delta_tick = 0;
 
     void Init(daisy::GateIn* clk, Ctrl* knob, float sample_rate) {
         this->clk = clk;
         this->knob = knob;
         this->sample_rate = sample_rate;
-        metro.Init(1.0f, sample_rate);
-        SetTimeout(1.0f);
     }
 
-    void SetTimeout(float secs) {
-        timeout_ticks = static_cast<size_t>(secs * sample_rate);
+    void SetFreq(float freq) {
+        step = freq / sample_rate;
+    }
+
+    float GetFreq() {
+        return step * sample_rate;
     }
 
     bool RisingEdge() {
@@ -37,28 +41,50 @@ public:
         return changed && !is_high;
     }
 
+    bool IsHigh() {
+        return is_high;
+    }
+
+    bool InputActive() {
+        return input_active;
+    }
+
+    bool GetProgress() {
+        return progress;
+    }
+
     void Process() {
-        gate_active = true;
+        input_active = true;
+        progress += step;
+
+        size_t curr_tick = daisy::System::GetTick();
+        delta_tick = curr_tick - last_tick;
+        float sys_freq = static_cast<float>(daisy::System::GetTickFreq());
+
         if (clk->Trig()) {
-            metro.Reset();
-            clk_freq = sample_rate / static_cast<float>(ticks_since_high);
-            ticks_since_high = 0;
-        } else if (ticks_since_high < timeout_ticks) {
-            ticks_since_high++;
+            progress = 0.0f;
+            base_freq = sys_freq / delta_tick;
+            last_tick = curr_tick;
+        }
+        
+        input_active = ((delta_tick / sys_freq) < timeout);
+
+        if (!input_active) {
+            this->SetFreq(daisysp::fmap(knob->Value(), 1.0f, 256.0f));
         } else {
-            gate_active = false;
+            uint8_t multiplier = daisysp::fmap(knob->Value(), 0.0f, 5.0f);
+            float power = powf(2.0f, static_cast<float>(multiplier));
+            this->SetFreq(base_freq * power);
         }
 
-        if (false) { // TODO: if (gate_active)
-            metro.SetFreq(daisysp::fmap(knob->Value(), 1.0f, 256.0f));
-        } else {
-            float multiplier = daisysp::fmap(knob->Value(), 0.0f, 5.0f);
-            metro.SetFreq(clk_freq * multiplier * 2.0f);
+        if (progress > 1.0f) {
+            progress = 0.0f;
         }
+        bool is_high = progress < 0.5f; 
 
-        if (metro.Process()) {
+        if (is_high != this->is_high) {
+            this->is_high = is_high;
             changed = true;
-            is_high = !is_high;
         } else {
             changed = false;
         }
