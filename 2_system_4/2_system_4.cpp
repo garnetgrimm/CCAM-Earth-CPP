@@ -126,6 +126,9 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             }
         }
         
+        hw.som.gate_out_1.Write(gates[0]);
+        hw.som.gate_out_2.Write(gates[1]);
+        
         OUT_L[i] = tone_drum.Process(gates[0]);
         OUT_R[i] = noise_drum.Process(gates[1]);
 
