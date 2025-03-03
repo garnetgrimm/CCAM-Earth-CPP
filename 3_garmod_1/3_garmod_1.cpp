@@ -14,23 +14,37 @@ float outval = 0.0f;
 float freq = 0.0f;
 float voltage = 0.0f;
 
+// coefficents from python calibration
+constexpr std::array<float, 3> coeffs = {
+    0.0008972f, 0.9702000f, 0.0009984f
+};
+
+// quadratic formula
+float adjust_voltage(float target) {
+    float discriminant = (coeffs[1] * coeffs[1]);
+    discriminant -= 4.0f * coeffs[0] * (coeffs[2] - target);
+    return (-coeffs[1] + sqrtf(discriminant)) / (2.0f * coeffs[0]);
+}
+
+
 static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             daisy::AudioHandle::OutputBuffer out, 
             size_t size) {
     hw.ProcessAllControls();
 
-    //inval = hw.cvins[0]->Value();
-    inval = hw.knobs[0]->Value();
+    inval = hw.cvins[0]->Value();
+    //inval = hw.knobs[0]->Value();
 
     raw_note = daisysp::fmap(inval, 0.0f, MAX_MIDI_NOTE) + 33.0f;
 
     note = Quantizer::apply(
-        Quantizer::Scale::ALL,
+        Quantizer::Scale::MAJOR,
         raw_note
     );
 
     freq = daisysp::mtof(note);
     voltage = ftov(freq);
+    voltage = adjust_voltage(voltage);
 
     hw.som.WriteCvOut(0, voltage);
 
