@@ -13,6 +13,7 @@ float inval = 0.0f;
 float outval = 0.0f;
 float freq = 0.0f;
 float voltage = 0.0f;
+float offset = 0.0f;
 
 // coefficents from python calibration
 constexpr std::array<float, 3> coeffs = {
@@ -33,10 +34,10 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             size_t size) {
     hw.ProcessAllControls();
 
+    offset = hw.cvins[1]->Value()*5.0f*12.0f;
     inval = hw.cvins[0]->Value();
-    //inval = hw.knobs[0]->Value();
 
-    raw_note = daisysp::fmap(inval, 0.0f, MAX_MIDI_NOTE) + 33.0f;
+    raw_note = daisysp::fmap(inval, 0.0f, MAX_MIDI_NOTE) + 33.0f + offset;
 
     note = Quantizer::apply(
         Quantizer::Scale::MAJOR,
@@ -61,7 +62,7 @@ int main(void)
     hw.StartAudio(AudioCallback);
 
     while(1) {
-        hw.som.PrintLine("input: %f output %f", raw_note, note);
+        hw.som.PrintLine("input: %f output %f", raw_note, offset);
         daisy::System::Delay(100);
     }
 }
