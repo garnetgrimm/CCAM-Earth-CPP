@@ -16,14 +16,15 @@ float voltage = 0.0f;
 
 // coefficents from python calibration
 constexpr std::array<float, 3> coeffs = {
-    0.0008972f, 0.9702000f, 0.0009984f
+    -0.0009612f, 1.031f, -0.0009436f
 };
 
-// quadratic formula
 float adjust_voltage(float target) {
-    float discriminant = (coeffs[1] * coeffs[1]);
-    discriminant -= 4.0f * coeffs[0] * (coeffs[2] - target);
-    return (-coeffs[1] + sqrtf(discriminant)) / (2.0f * coeffs[0]);
+    float result = 0.0f;
+    result += coeffs[0] * target * target;
+    result += coeffs[1] * target;
+    result += coeffs[2];
+    return result;
 }
 
 
@@ -60,7 +61,7 @@ int main(void)
     hw.StartAudio(AudioCallback);
 
     while(1) {
-        hw.som.PrintLine("input: %f output %f", freq, voltage);
+        hw.som.PrintLine("input: %f output %f", raw_note, note);
         daisy::System::Delay(100);
     }
 }

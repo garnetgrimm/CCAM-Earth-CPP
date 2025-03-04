@@ -7,7 +7,7 @@ class Quantizer {
         float octave = floorf(note / 12.0f);
         note = fmodf(note, 12.0f);
 
-        uint8_t min_distance = 1.0f;
+        uint8_t min_distance = 12.0f;
         uint8_t min_idx = 0;
         for (uint8_t i = 0; i < scale.size(); i++) {
             uint8_t distance = abs(note - scale[i]);
