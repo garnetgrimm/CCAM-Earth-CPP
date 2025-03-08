@@ -14,7 +14,7 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 
     for (size_t i = 0; i < size; i++)
     {
-        //OUT_L[i] = static_cast<float>(TR606Cymb01_sample[i]) / static_cast<float>(0xFFFF);
+        OUT_L[i] = player.Tick(hw.som.gate_in_1.Trig());
     }
 
     hw.PostProcess();
@@ -27,7 +27,10 @@ int main(void)
     hw.StartAudio(AudioCallback);
     player.SetPlaybackSampleRate(hw.som.AudioSampleRate());
 
+    bool ledOn = false;
     while(1) {
+        ledOn = !ledOn;
+        hw.leds[0].Set(ledOn ? 0.0f : 1.0f);
         daisy::System::Delay(100);
     }
 }
