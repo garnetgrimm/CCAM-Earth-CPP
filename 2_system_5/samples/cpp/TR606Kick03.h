@@ -1,3 +1,5 @@
+#ifndef __TR606KICK03_SAMPLE_H__
+#define __TR606KICK03_SAMPLE_H__
 
 #include <array>
 
@@ -1256,3 +1258,5 @@ DSY_SDRAM_BSS std::array<uint16_t, 81426> TR606Kick03_sample = {
  0x6100, 0x9100, 0xd500, 0x1d00, 0xa400, 0x2500, 0xf500, 0x3b00,
  0x7800, 0xaa00, 0xfd00, 0xa800, 0xe600, 0xf900
 };
+
+#endif

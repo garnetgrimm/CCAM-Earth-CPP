@@ -1,3 +1,5 @@
+#ifndef __TR606SNARE01_SAMPLE_H__
+#define __TR606SNARE01_SAMPLE_H__
 
 #include <array>
 
@@ -551,3 +553,5 @@ DSY_SDRAM_BSS std::array<uint16_t, 35609> TR606Snare01_sample = {
  0xb100, 0x1c00, 0x0700, 0x8f00, 0xf100, 0xf000, 0xa800, 0x2900,
  0xb300, 0xe100, 0xbd00, 0x9600, 0xb600, 0x1000, 0x8500
 };
+
+#endif

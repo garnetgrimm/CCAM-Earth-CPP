@@ -1,3 +1,5 @@
+#ifndef __TR606HAT_O03_SAMPLE_H__
+#define __TR606HAT_O03_SAMPLE_H__
 
 #include <array>
 
@@ -7860,3 +7862,5 @@ DSY_SDRAM_BSS std::array<uint16_t, 510662> TR606Hat_O03_sample = {
  0xd600, 0x1300, 0xb600, 0x4e00, 0xff00, 0x8b00, 0x0b00, 0xfd00,
  0x8a00, 0x1600, 0x1400
 };
+
+#endif

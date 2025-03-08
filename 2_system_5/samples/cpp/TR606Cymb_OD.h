@@ -1,3 +1,5 @@
+#ifndef __TR606CYMB_OD_SAMPLE_H__
+#define __TR606CYMB_OD_SAMPLE_H__
 
 #include <array>
 
@@ -15580,3 +15582,5 @@ DSY_SDRAM_BSS std::array<uint16_t, 1012446> TR606Cymb_OD_sample = {
  0x4d00, 0xd000, 0x6700, 0x4b00, 0xed00, 0x2c00, 0xfc00, 0x7200,
  0x5000
 };
+
+#endif

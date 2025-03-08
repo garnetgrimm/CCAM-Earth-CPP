@@ -1,3 +1,5 @@
+#ifndef __TR606TOMHI01_SAMPLE_H__
+#define __TR606TOMHI01_SAMPLE_H__
 
 #include <array>
 
@@ -1298,3 +1300,5 @@ DSY_SDRAM_BSS std::array<uint16_t, 84140> TR606TomHi01_sample = {
  0xae00, 0x2a00, 0x3300, 0x2b00, 0x7100, 0x9400, 0x6a00, 0x6600,
  0x7700, 0x2400, 0xe400, 0x0800
 };
+
+#endif

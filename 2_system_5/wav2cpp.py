@@ -7,12 +7,16 @@ import numpy as np
 SAMPLES_DIR = Path('./samples/wav').resolve()
 HEADERS_DIR = SAMPLES_DIR.parent / 'cpp'
 
-HEADER_TEMPLATE = """
+HEADER_TEMPLATE = """#ifndef __{header}_H__
+#define __{header}_H__
+
 #include <array>
 
-DSY_SDRAM_BSS std::array<uint16_t, {}> {} = {{
- {}
+DSY_SDRAM_BSS std::array<uint16_t, {length}> {sample_name} = {{
+ {data}
 }};
+
+#endif
 """
 
 for input_fn in SAMPLES_DIR.iterdir():
@@ -34,7 +38,13 @@ for input_fn in SAMPLES_DIR.iterdir():
 
     data = re.sub(r',', comma_newline, data)
     
-    result = HEADER_TEMPLATE.format(len(data), sample_name, data)
+    result = HEADER_TEMPLATE.format(
+        header=sample_name.upper(),
+        length=len(data),
+        sample_name=sample_name,
+        data=data
+    )
+
     with open(output_fn, 'w') as f:
         f.write(result)
     print(output_fn)
