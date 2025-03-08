@@ -25,6 +25,7 @@ for input_fn in SAMPLES_DIR.iterdir():
     samplerate, data = wavfile.read(input_fn)
     data = data.astype(np.uint16)
 
+    num_samples = len(data)
     data = ', '.join([f"{sample:-#0{6}x}" for sample in data])
 
     comma_number = 0
@@ -40,7 +41,7 @@ for input_fn in SAMPLES_DIR.iterdir():
     
     result = HEADER_TEMPLATE.format(
         header=sample_name.upper(),
-        length=len(data),
+        length=num_samples,
         sample_name=sample_name,
         data=data
     )
