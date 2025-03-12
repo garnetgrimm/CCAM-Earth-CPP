@@ -7,9 +7,9 @@ using SampleBuffer = std::pair<uint16_t*, size_t>;
 constexpr uint16_t U16_DIRECTION_MASK = static_cast<uint16_t>(1<<15);
 constexpr uint16_t U16_MAGNITUDE_MASK = static_cast<uint16_t>(~U16_DIRECTION_MASK);
 
-class SamplePlayer {
-    float playback_sample_rate = 440000.0f;
-    float recorded_sample_rate = 440000.0f;
+struct SamplePlayer {
+    float playback_sample_rate = 44100.0f;
+    float recorded_sample_rate = 44100.0f;
 
     float current_idx = 0.0f;
     float playback_step = 1.0f;
@@ -30,7 +30,9 @@ class SamplePlayer {
     }
 
     float get_sample(size_t index) {
-        return sample_buffer.first[index % sample_buffer.second];
+        return u16_to_float(
+            sample_buffer.first[index % sample_buffer.second]
+        );
     }
 
     float get_sample(float index) {
@@ -45,20 +47,12 @@ class SamplePlayer {
 
 public:
     float Tick(bool trigger) {
-        if (trigger && !playing) {
+        current_idx += playback_step;
+        if (current_idx > sample_buffer.second) {
             current_idx = 0.0f;
-            playing = true;
         }
 
-        if (current_idx >= sample_buffer.second) {
-            playing = false;
-        }
-
-        if (playing) {
-            current_idx += playback_step;
-        }
-
-        return get_sample(current_idx);
+        return get_sample(static_cast<size_t>(current_idx));
     }
 
     void SetPlaybackSampleRate(float sr) {
