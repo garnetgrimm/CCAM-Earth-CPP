@@ -57,7 +57,7 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
 
     // use a vco to confirm that all the notes are correct
     raw_note = daisysp::fmap(hw.knobs[0]->Value(), 0.0f, MAX_MIDI_NOTE) + 33.0f;
-    note = Quantizer::apply(Quantizer::Scale::MAJOR, raw_note);
+    note = Quantizer::apply(Quantizer::Scale::ALL, raw_note);
     freq = daisysp::mtof(note);
     voltage = ftov(freq);
     hw.som.WriteCvOut(0, adjust_voltage(voltage));
@@ -94,9 +94,7 @@ int main(void)
     hw.StartAudio(AudioCallback);
 
     while(1) {
-        if (QUANTA_CALIBRATION_MODE != CALIBRATION_MODE_OFF) {
-            hw.som.PrintLine("voltage: %f note: %f", voltage, note);
-        }
+        hw.som.PrintLine("voltage: %f note: %f", voltage, note);
         daisy::System::Delay(100);
     }
 }
