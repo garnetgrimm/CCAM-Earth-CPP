@@ -4,6 +4,13 @@
 #include <ccam/utils/gubbins.h>
 #include <ccam/utils/quantizer.h>
 
+#define CALIBRATION_MODE_OFF 0
+#define CALIBRATION_MODE_RAW 1
+#define CALIBRATION_MODE_COF 2
+#define CALIBRATION_MODE_VCO 3
+
+#define QUANTA_CALIBRATION_MODE CALIBRATION_MODE_OFF
+
 ccam::hw::Estuary hw;
 
 constexpr float MAX_MIDI_NOTE = 12.0f * 5.0f;
@@ -17,7 +24,7 @@ float offset = 0.0f;
 
 // coefficents from python calibration
 constexpr std::array<float, 3> coeffs = {
-    -0.0009612f, 1.031f, -0.0009436f
+    -0.002163f, 1.037f, -0.01769f
 };
 
 float adjust_voltage(float target) {
@@ -34,21 +41,46 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
             size_t size) {
     hw.ProcessAllControls();
 
-    offset = hw.cvins[1]->Value()*5.0f*12.0f;
-    inval = hw.cvins[0]->Value();
+#if QUANTA_CALIBRATION_MODE == CALIBRATION_MODE_RAW
 
-    raw_note = daisysp::fmap(inval, 0.0f, MAX_MIDI_NOTE) + 33.0f + offset;
+    // determine tuning coefficents (see python script)
+    voltage = std::floorf(hw.knobs[0]->Value()*60.0f)/10.0f;
+    hw.som.WriteCvOut(0, voltage);
 
-    note = Quantizer::apply(
-        Quantizer::Scale::MAJOR,
-        raw_note
-    );
+#elif QUANTA_CALIBRATION_MODE == CALIBRATION_MODE_COF
 
+    // validate tuning cofficents or re-measure
+    voltage = std::floorf(hw.knobs[0]->Value()*6.0f);
+    hw.som.WriteCvOut(0, adjust_voltage(voltage));
+
+#elif QUANTA_CALIBRATION_MODE == CALIBRATION_MODE_VCO
+
+    // use a vco to confirm that all the notes are correct
+    raw_note = daisysp::fmap(hw.knobs[0]->Value(), 0.0f, MAX_MIDI_NOTE) + 33.0f;
+    note = Quantizer::apply(Quantizer::Scale::MAJOR, raw_note);
     freq = daisysp::mtof(note);
     voltage = ftov(freq);
-    voltage = adjust_voltage(voltage);
+    hw.som.WriteCvOut(0, adjust_voltage(voltage));
 
-    hw.som.WriteCvOut(0, voltage);
+#else
+
+    // regular operation
+    auto max_scale = static_cast<float>(Quantizer::Scale::COUNT);
+    auto scale = static_cast<Quantizer::Scale>(hw.knobs[0]->Value() * max_scale);
+
+    for (uint8_t i = 0; i < hw.leds.size(); i++) {
+        hw.leds[i].Set(0.0);
+    }
+
+    hw.leds[static_cast<uint8_t>(scale)].Set(1.0f);
+
+    raw_note = daisysp::fmap(hw.cvins[0]->Value(), 0.0f, MAX_MIDI_NOTE) + 33.0f;
+    note = Quantizer::apply(scale, raw_note);
+    freq = daisysp::mtof(note);
+    voltage = ftov(freq);
+    hw.som.WriteCvOut(0, adjust_voltage(voltage));
+
+#endif
 
     for (size_t i = 0; i < size; i++) {}
 
@@ -62,7 +94,9 @@ int main(void)
     hw.StartAudio(AudioCallback);
 
     while(1) {
-        hw.som.PrintLine("input: %f output %f", raw_note, offset);
+        if (QUANTA_CALIBRATION_MODE != CALIBRATION_MODE_OFF) {
+            hw.som.PrintLine("voltage: %f note: %f", voltage, note);
+        }
         daisy::System::Delay(100);
     }
 }
