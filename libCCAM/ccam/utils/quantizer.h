@@ -3,7 +3,8 @@
 #include <math.h>
 
 class Quantizer {
-    static float apply(auto& scale, float note) {
+    template <typename T>
+    static float apply(T& scale, float note) {
         float octave = floorf(note / 12.0f);
         note = fmodf(note, 12.0f);
 
