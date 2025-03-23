@@ -54,7 +54,6 @@ public:
     }
 
     void Process() {
-        input_active = true;
         progress += step;
 
         size_t curr_tick = daisy::System::GetTick();
@@ -65,9 +64,12 @@ public:
             progress = 0.0f;
             base_freq = sys_freq / delta_tick;
             last_tick = curr_tick;
+            input_active = true;
         }
         
-        input_active = ((delta_tick / sys_freq) < timeout);
+        if ((delta_tick / sys_freq) < timeout) {
+            input_active = false;
+        }
 
         if (!input_active) {
             this->SetFreq(daisysp::fmap(knob->Value(), 1.0f, 256.0f));
