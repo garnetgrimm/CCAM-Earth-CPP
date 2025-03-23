@@ -67,7 +67,7 @@ public:
             input_active = true;
         }
         
-        if ((delta_tick / sys_freq) < timeout) {
+        if ((delta_tick / sys_freq) >= timeout) {
             input_active = false;
         }
 
