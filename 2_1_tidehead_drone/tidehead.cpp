@@ -65,7 +65,7 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
         1000.0f
     );
     float amp = combine_cv_safe(main_ctrl.Value(2), 2);
-    float detune = combine_cv_safe(main_ctrl.Value(3), 3);
+    float detune = combine_cv_safe(main_ctrl.Value(3), 3) * 0.1f;
 
     float lfo_freq = daisysp::fmap(
         main_ctrl.Value(4), 0.1f, 30.0f
