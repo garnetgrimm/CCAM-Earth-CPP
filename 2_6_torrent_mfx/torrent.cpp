@@ -52,7 +52,7 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer in,
     bool clocking = (sin_lfo_val > 0.0f);
     hw.som.gate_out_1.Write(clocking);
     hw.som.gate_out_2.Write(clocking);
-    hw.leds[0].Set(clocking ? 0.0f : 1.0f);
+    hw.leds[0].Set(clocking ? 1.0f : 0.0f);
 
     for (size_t i = 0; i < size; i++)
     {
